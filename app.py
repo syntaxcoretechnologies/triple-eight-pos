@@ -5,36 +5,40 @@ from flask import Flask, jsonify, redirect, render_template_string, render_templ
 from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix  # <--- MEKA ALUTHIN DAMMA (Render HTTPS session fix karanna)
 from pymongo import MongoClient
 from functools import wraps
 from bson.objectid import ObjectId
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'syntaxcore_pos_2026_secret'
+
+# Render proxy headers handle karanna meka aniwa ooni (Session loss wenna nodi thiyaganna)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'syntaxcore_pos_2026_secret')
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Render environment variable eken MONGO_URI eka gannawa (Nathnam local fallback ekak thiyenawa)
 MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017/")
 
-# MongoDB Client eka certifi saha roobyclothing_db_user ekka connect karanawa
+# MongoDB Client eka certifi saha connection ekka connect karanawa
 client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
 
-# Database name eka roobyclothing_db_user widihata set karanawa
-db = client['roobyclothing_db_user']  
+# Database name eka set karanawa
+db = client['triple_eight_pos_db']  
 orders_collection = db['orders']
 
-# MongoDB Collections (SQLite wala tables walata samana wenne mewa)
+# MongoDB Collections
 tables_collection = db['tables']
 waiters_collection = db['waiters']
 inventory_collection = db['inventory']
 held_orders_collection = db['held_orders']
-users_collection = db['users']  # Aluthin damma: User accounts save karanna
+users_collection = db['users']  # User accounts save karanna
 
 UPLOAD_FOLDER = 'static/uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def init_db():
-    # MongoDB collections check/ready print karanawa
     print("MongoDB collections ready!")
     
     # System eke user kenek wath nathnam, default Admin account ekak auto create karayi
@@ -47,7 +51,6 @@ def init_db():
         })
         print("Default admin user created successfully! (Username: admin | Password: admin123)")
 
-# Aluth ID generate karaganna ooni function eka (Error eka fix karanna meka damme)
 def get_next_id(counter_name='order_id'):
     counter = db.counters.find_one_and_update(
         {'_id': counter_name},
@@ -73,13 +76,13 @@ def role_required(allowed_roles):
 
 # --- Custom Template Renderer Helper ---
 def render_template_custom(template_str, **kwargs):
-    # Oyage code eke render_template_custom use karana nisa, eka handle karanna meka damme
     try:
         return render_template_string(template_str, **kwargs)
     except Exception:
         return render_template(template_str, **kwargs)
 
 init_db()
+
 
 
 # --- HTML TEMPLATES ---
