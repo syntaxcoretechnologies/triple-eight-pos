@@ -1164,8 +1164,13 @@ function printKOTDirect() {
         isKotPrintedStatus = true;
         updateKotIndicatorUI();
         
+        // 1. Correct HTML generation function call
         generateKOTHtml(table, cart, comment, selectedWaiter);
-        window.print();
+        
+        // 2. Small delay to let browser render the HTML inside printable area before printing
+        setTimeout(() => {
+            window.print();
+        }, 300);
         
         fetchActiveTablesCount();
         checkTableSelection();
@@ -1191,7 +1196,8 @@ function generateKOTHtml(table, items, comment, waiterName) {
         }
     });
 
-    let area = document.getElementById('printable-area');
+    // Corrected ID to match HTML (#printable-asset-area)
+    let area = document.getElementById('printable-asset-area');
     if(area) {
         area.innerHTML = `
             <div style="text-align:center; font-weight:black; font-size:14px; margin-bottom:4px;">*** KITCHEN ORDER (KOT) ***</div>
@@ -1204,6 +1210,7 @@ function generateKOTHtml(table, items, comment, waiterName) {
         `;
     }
 }
+
 
 function openQrOrdersModal() {
     fetch('/api/orders/held').then(res => res.json()).then(orders => {
@@ -1315,7 +1322,8 @@ function generateReceiptHtml(table, items, sub, sc, disc, tot, method) {
     
     let scPrintLine = sc > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Service Charge:</span><span>LKR ${sc.toFixed(2)}</span></div>` : '';
 
-    let area = document.getElementById('printable-area');
+    // Fixed ID to match HTML (#printable-asset-area)
+    let area = document.getElementById('printable-asset-area');
     if(area) {
         area.innerHTML = `
             <div style="text-align:center; font-weight:bold; font-size:15px; line-height:1.2;">THE TRIPLE EIGHT</div>
@@ -1347,8 +1355,14 @@ function generateReceiptHtml(table, items, sub, sc, disc, tot, method) {
             <div style="text-align:center; font-size:10px; font-weight:bold;">0788909801</div>
             <div style="text-align:center; font-size:10px; font-weight:bold; margin-top:4px;">THANK YOU! COME AGAIN</div>
         `;
+        
+        // Add timeout to make sure browser renders the receipt HTML before calling window.print()
+        setTimeout(() => {
+            window.print();
+        }, 300);
     }
 }
+
 
 function filterProducts() {
     let q = document.getElementById('search')?.value.toLowerCase() || '';
