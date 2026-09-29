@@ -2400,8 +2400,21 @@ def get_service_charge_settings():
 
 
 @app.route('/')
-@role_required(['Admin'])
 def dashboard_view():
+    # 1. Login wela nadda balanna
+    if 'username' not in session:
+        flash('Please login first!', 'error')
+        return redirect(url_for('login'))
+    
+    # 2. Role eka Admin da kiyala check karanna (Case-insensitive check)
+    user_role = session.get('role', '')
+    print(f"DEBUG ROLE: {user_role}")  # Render logs wala balaganna puluwan
+    
+    if user_role.lower() != 'admin':
+        flash('Access Denied: Admin only area!', 'error')
+        return redirect(url_for('pos_panel'))  # 403 denawa wenuwata POS ekata yawanna
+    
+    # --- Oyaage original logic eka methanata danna ---
     orders_list = list(orders_collection.find())
     total_revenue = sum(row.get('total', 0) for row in orders_list)
     total_orders = orders_collection.count_documents({})
@@ -2424,7 +2437,6 @@ def dashboard_view():
         tables=tables,
         orders=orders,
     )
-
 
 @app.route('/pos')
 @role_required(['Admin', 'Cashier', 'Waiter'])
