@@ -2351,6 +2351,20 @@ def logout():
     return redirect(url_for('login'))
 
 
+# --- Root Route (App eka open karapu gaman login page ekata yanna) ---
+@app.route('/')
+def index():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    # Login wela nam role eka balala hari thanata yawanna
+    user_role = session.get('role', '')
+    if user_role.lower() == 'admin':
+        return redirect(url_for('dashboard_view'))
+    else:
+        return redirect(url_for('pos_panel'))
+
+
 # --- User Management Routes ---
 @app.route('/users', methods=['GET', 'POST'])
 @role_required(['Admin'])
@@ -2399,7 +2413,9 @@ def get_service_charge_settings():
     return setting
 
 
-@app.route('/')
+# --- Admin Dashboard Route (/dashboard) ---
+@app.route('/dashboard')
+@role_required(['Admin'])
 def dashboard_view():
     # 1. Login wela nadda balanna
     if 'username' not in session:
@@ -2412,9 +2428,9 @@ def dashboard_view():
     
     if user_role.lower() != 'admin':
         flash('Access Denied: Admin only area!', 'error')
-        return redirect(url_for('pos_panel'))  # 403 denawa wenuwata POS ekata yawanna
+        return redirect(url_for('pos_panel'))  # POS ekata yawanna
     
-    # --- Oyaage original logic eka methanata danna ---
+    # --- Original logic ---
     orders_list = list(orders_collection.find())
     total_revenue = sum(row.get('total', 0) for row in orders_list)
     total_orders = orders_collection.count_documents({})
@@ -2437,6 +2453,7 @@ def dashboard_view():
         tables=tables,
         orders=orders,
     )
+    
 
 @app.route('/pos')
 @role_required(['Admin', 'Cashier', 'Waiter'])
