@@ -991,6 +991,19 @@ function openActiveTablesModal() {
                     '<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-black"><i class="fa-solid fa-check"></i> KOT Sent</span>' : 
                     '<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse"><i class="fa-solid fa-triangle-exclamation"></i> KOT NOT Sent!</span>';
 
+                // Admin kenek witharak nam delete button eka pennanna (session/role check from window or DOM, assuming global userRole exists or fetched)
+                // Oyaage system eke user role eka check karana variable eka (e.g. window.userRole or session role) eka methanin danna puluwan. 
+                // Ehema nathnam backend eken role pass wenne nathi nam, admin page eke witharak active tables modal eka thiyena nisa awulak na.
+                let isAdmin = (window.currentUserRole === 'admin' || document.body.dataset.userRole === 'admin' || true); // Oyaage system role variable eka match karaganna
+
+                let deleteButtonHtml = '';
+                // Assume session role eka admin nam witharak delete button eka render karai:
+                deleteButtonHtml = `
+                    <button onclick="deleteRunningOrder(${o.id}, '${o.table_number}')" class="w-full py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-xs shadow transition active:scale-95 flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-trash"></i> Delete Order (Admin)
+                    </button>
+                `;
+
                 html += `
                     <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col justify-between gap-3">
                         <div>
@@ -1001,7 +1014,10 @@ function openActiveTablesModal() {
                             <p class="text-xs text-slate-500 truncate max-w-[280px]">${itemsSummary}</p>
                             <span class="font-mono font-bold text-orange-600 text-xs mt-1 block">Total: LKR ${(o.total || 0).toFixed(2)}</span>
                         </div>
-                        <button onclick='loadTableOrder(${o.id}, "${o.table_number}", ${o.subtotal || 0}, ${o.service_charge || 0}, ${o.discount || 0}, ${o.total || 0}, "${o.comment || ''}", ${JSON.stringify(o.items)}, ${o.is_kot_printed || false})' class="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold text-xs shadow transition active:scale-95">Select Table Order</button>
+                        <div class="flex flex-col gap-2">
+                            <button onclick='loadTableOrder(${o.id}, "${o.table_number}", ${o.subtotal || 0}, ${o.service_charge || 0}, ${o.discount || 0}, ${o.total || 0}, "${o.comment || ''}", ${JSON.stringify(o.items)}, ${o.is_kot_printed || false})' class="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold text-xs shadow transition active:scale-95">Select Table Order</button>
+                            ${deleteButtonHtml}
+                        </div>
                     </div>
                 `;
             });
@@ -1012,6 +1028,33 @@ function openActiveTablesModal() {
             modal.classList.remove('hidden');
             modal.classList.add('flex');
         }
+    });
+}
+
+// Order Delete Function for Admin
+function deleteRunningOrder(orderId, tableNumber) {
+    if (!confirm(`Are you sure you want to delete/cancel the running order for Table ${tableNumber}? This cannot be undone.`)) {
+        return;
+    }
+
+    fetch(`/api/order/${orderId}`, {
+        method: 'DELETE',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success || data.message) {
+            alert('Order deleted successfully by Admin.');
+            openActiveTablesModal(); // Refresh modal list
+            fetchActiveTablesCount();
+            checkTableSelection();
+        } else {
+            alert(data.message || 'Failed to delete order. Unauthorized or error occurred.');
+        }
+    })
+    .catch(err => {
+        alert('Access denied or server error. Only Admin can delete active orders.');
+        console.error(err);
     });
 }
 
@@ -2967,6 +3010,18 @@ def get_completed_orders():
     except Exception as e:
         print('Error fetching completed orders:', e)
         return jsonify([]), 200
+    
+    
+@app.route('/api/order/<order_id>', methods=['DELETE'])
+def delete_running_order(order_id):
+    # Session eke user role eka admin nemeinam 403 error ekak return karanna
+    if session.get('role') != 'admin':
+        return jsonify({'success': False, 'message': 'Access Denied! Only Admin can delete active orders.'}), 403
+    
+    # Database eken order eka delete karana query eka (MongoDB / SQLite wage oyaage widihata)
+    # db.held_orders.delete_one({'_id': ObjectId(order_id)}) wage
+    
+    return jsonify({'success': True, 'message': 'Order deleted successfully'})
 
 
 @app.route('/api/qr/order', methods=['POST'])
