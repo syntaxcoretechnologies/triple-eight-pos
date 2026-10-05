@@ -1350,7 +1350,7 @@ function processCheckout() {
         })
     }).then(res => res.json()).then(data => {
         generateReceiptHtml(table, cart, window.calculatedSubtotal, window.calculatedServiceCharge, window.calculatedDiscount, window.calculatedTotal, currentPaymentMethod, selectedWaiter);
-        window.print();
+        // window.print(); ---> Me parana line eka ain kala!
         resetPOS();
         fetchActiveTablesCount();
     });
