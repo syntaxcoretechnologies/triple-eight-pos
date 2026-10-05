@@ -101,9 +101,23 @@ BASE_LAYOUT = """
     <style>
         @media print {
             body * { visibility: hidden; }
-            #printable-receipt, #printable-receipt * { visibility: visible; }
-            #printable-receipt { position: absolute; left: 0; top: 0; width: 80mm; }
+            #printable-asset-area, #printable-asset-area * { visibility: visible; }
+            #printable-asset-area { 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 80mm; 
+                display: block !important; 
+                height: auto !important;
+                overflow: visible !important;
+            }
+            @page {
+                size: 80mm auto;
+                margin: 0mm;
+            }
         }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="bg-slate-100 font-sans min-h-screen lg:h-screen flex flex-col overflow-x-hidden lg:overflow-hidden select-none">
@@ -1527,7 +1541,11 @@ function printPreBill() {
     let total = window.calculatedTotal || 0;
 
     generatePreBillHtml(table, cart, subtotal, serviceCharge, discount, total, selectedWaiter);
-    window.print();
+    
+    // Small delay to let browser render the HTML inside printable asset area before triggering print
+    setTimeout(() => {
+        window.print();
+    }, 300);
 }
 
 function generatePreBillHtml(table, items, subtotal, serviceCharge, discount, total, waiterName) {
@@ -1541,7 +1559,8 @@ function generatePreBillHtml(table, items, subtotal, serviceCharge, discount, to
 
     let scPrintLine = serviceCharge > 0 ? `<div style="display:flex; justify-content:space-between; font-size:11px;"><span>Service Charge:</span><span>LKR ${serviceCharge.toFixed(2)}</span></div>` : '';
 
-    let area = document.getElementById('printable-area');
+    // Fixed ID here to match the CSS layout template (#printable-asset-area)
+    let area = document.getElementById('printable-asset-area');
     if(area) {
         area.innerHTML = `
             <div style="text-align:center; font-weight:black; font-size:15px; margin-bottom:2px;">THE TRIPLE EIGHT</div>
