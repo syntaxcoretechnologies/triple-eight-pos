@@ -100,16 +100,26 @@ BASE_LAYOUT = """
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @media print {
+            body, html {
+                width: 80mm;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #fff !important;
+            }
             body * { visibility: hidden; }
             #printable-asset-area, #printable-asset-area * { visibility: visible; }
             #printable-asset-area { 
                 position: absolute; 
                 left: 0; 
                 top: 0; 
-                width: 80mm; 
+                width: 80mm !important; 
+                height: max-content !important;
+                max-height: none !important;
                 display: block !important; 
-                height: auto !important;
                 overflow: visible !important;
+                margin: 0 !important;
+                padding: 2mm !important;
             }
             @page {
                 size: 80mm auto;
