@@ -3186,14 +3186,16 @@ def get_completed_orders():
     
 @app.route('/api/order/<order_id>', methods=['DELETE'])
 def delete_running_order(order_id):
-    # Session eke user role eka admin nemeinam 403 error ekak return karanna
-    if session.get('role') != 'admin':
+    # Fixed session role check (Capital 'Admin' and correct key 'role')
+    if session.get('role') != 'Admin':
         return jsonify({'success': False, 'message': 'Access Denied! Only Admin can delete active orders.'}), 403
     
-    # Database eken order eka delete karana query eka (MongoDB / SQLite wage oyaage widihata)
-    # db.held_orders.delete_one({'_id': ObjectId(order_id)}) wage
-    
-    return jsonify({'success': True, 'message': 'Order deleted successfully'})
+    try:
+        held_orders_collection.delete_one({'id': int(order_id)})
+        socketio.emit('refresh_orders', {'status': 'updated'})
+        return jsonify({'success': True, 'message': 'Order deleted successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 @app.route('/api/qr/order', methods=['POST'])
@@ -3258,10 +3260,10 @@ def get_menu_items():
 
 @app.route('/admin/running-orders')
 def admin_running_orders():
-    # Admin role check
-    if session.get('user_role') != 'admin':
+    # Fixed role check to match session['role'] == 'Admin'
+    if session.get('role') != 'Admin':
         return "Access Denied! Admins only.", 403
-    return render_template_string(admin_orders_html)
+    return render_template_custom(ADMIN_ORDERS_HTML, title='Active Orders (Admin)')
 
 
 @app.route('/orders/complete/<int:order_id>')
