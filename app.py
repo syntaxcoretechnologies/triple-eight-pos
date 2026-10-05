@@ -532,7 +532,7 @@ USERS_HTML = """
 
 POS_HTML = """
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 h-full font-sans">
-    <!-- Main Center Area: Categories, Products & Table Status (Col Span 7) -->
+    <!-- Main Center Area: Categories, Products & Bottom Action Controls (Col Span 7) -->
     <div class="lg:col-span-7 flex flex-col gap-4 overflow-hidden">
         <!-- Search & Table Quick Switch Bar -->
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -615,11 +615,51 @@ POS_HTML = """
             </div>
             {% endfor %}
         </div>
+
+        <!-- PAYMENT METHODS & ACTION BUTTONS MOVED HERE (Under Product Grid) -->
+        <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-2 flex-shrink-0">
+            <!-- Payment Method Selectors (6 in a row or grid) -->
+            <div class="grid grid-cols-6 gap-1.5">
+                <button onclick="setPaymentMethod('Cash')" id="pm-Cash" class="pay-method-btn p-2 bg-orange-50 border-2 border-orange-500 rounded-xl flex items-center justify-center gap-1.5 text-orange-600 font-bold text-xs shadow-sm">
+                    <i class="fa-solid fa-money-bill-wave text-xs"></i> Cash
+                </button>
+                <button onclick="setPaymentMethod('Card')" id="pm-Card" class="pay-method-btn p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1.5 text-slate-600 font-bold text-xs shadow-sm">
+                    <i class="fa-solid fa-credit-card text-xs"></i> Card
+                </button>
+                <button onclick="setPaymentMethod('Visa')" id="pm-Visa" class="pay-method-btn p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1.5 text-indigo-700 font-bold text-xs shadow-sm">
+                    <i class="fa-brands fa-cc-visa text-xs"></i> Visa
+                </button>
+                <button onclick="setPaymentMethod('Online')" id="pm-Online" class="pay-method-btn p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1.5 text-blue-600 font-bold text-xs shadow-sm">
+                    <i class="fa-brands fa-paypal text-xs"></i> Online
+                </button>
+                <button onclick="setPaymentMethod('UberEats')" id="pm-UberEats" class="pay-method-btn p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1.5 text-emerald-600 font-bold text-xs shadow-sm">
+                    <i class="fa-solid fa-utensils text-xs"></i> Uber
+                </button>
+                <button onclick="setPaymentMethod('PickMe')" id="pm-PickMe" class="pay-method-btn p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1.5 text-amber-600 font-bold text-xs shadow-sm">
+                    <i class="fa-solid fa-taxi text-xs"></i> PickMe
+                </button>
+            </div>
+            
+            <!-- Action Buttons Grid -->
+            <div class="grid grid-cols-5 gap-1.5">
+                <button onclick="holdOrder()" class="py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-black text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1"><i class="fa-solid fa-floppy-disk"></i> Hold</button>
+                <button onclick="printKOTDirect()" class="py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-black text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1"><i class="fa-solid fa-utensils"></i> KOT</button>
+                <button onclick="printPreBill()" class="py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1">
+                    <i class="fa-solid fa-file-invoice"></i> Pre-Bill
+                </button>
+                <button onclick="openBillHistoryModal()" class="py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-black text-xs shadow-sm transition flex items-center justify-center gap-1 active:scale-95">
+                    <i class="fa-solid fa-clock-rotate-left text-amber-300"></i> History
+                </button>
+                <button onclick="processCheckout()" class="py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-1">
+                    <i class="fa-solid fa-print"></i> Close Bill
+                </button>
+            </div>
+        </div>
     </div>
     
-    <!-- Right Sidebar: Cashier Billing Invoice (Col Span 5 - Expanded for Clarity) -->
+    <!-- Right Sidebar: Cashier Billing Invoice (Col Span 5 - Fully Dedicated to Cart & Totals) -->
     <div class="lg:col-span-5 bg-white rounded-3xl border border-slate-200 shadow-xl p-4 flex flex-col h-auto lg:h-full overflow-hidden">
-        <!-- Top Title & Table Info (Fixed) -->
+        <!-- Top Title & Table Info -->
         <div class="flex justify-between items-center mb-2.5 flex-shrink-0">
             <h3 class="font-black text-lg text-slate-800">Cashier Billing</h3>
             <span id="active-table-badge" class="text-xs bg-amber-50 text-amber-700 px-2.5 py-1 rounded-lg font-black hidden">Running Order</span>
@@ -639,12 +679,12 @@ POS_HTML = """
 
         <input type="text" id="pos-comment" placeholder="Special Billing / KOT Note" class="w-full p-2 bg-slate-50 border rounded-xl font-medium text-slate-700 text-xs outline-none mb-2 flex-shrink-0">
 
-        <!-- CART ITEMS LIST (Expanded to show more items clearly for cashier) -->
-        <div id="cart-list" class="space-y-2 overflow-y-auto max-h-[340px] lg:max-h-none flex-1 pr-1 mb-2 border-y border-slate-100 py-2">
+        <!-- CART ITEMS LIST (Maximized height now since payment buttons moved to left side!) -->
+        <div id="cart-list" class="space-y-2 overflow-y-auto max-h-[420px] lg:max-h-none flex-1 pr-1 mb-2 border-y border-slate-100 py-2">
             <!-- Dynamically added items will appear here -->
         </div>
 
-        <!-- BOTTOM CONTROLS & ACTIONS CONTAINER -->
+        <!-- BOTTOM TOTALS & CALCULATIONS CONTAINER -->
         <div class="space-y-2 flex-shrink-0">
             <!-- Service Charge Quick Control Bar -->
             <div class="bg-indigo-50/60 px-3 py-2 rounded-xl border border-indigo-100 flex items-center justify-between">
@@ -696,48 +736,6 @@ POS_HTML = """
                     </div>
                 </div>
             </div>
-
-            <!-- Payment Method Selectors -->
-            <div class="grid grid-cols-3 gap-1.5">
-                <button onclick="setPaymentMethod('Cash')" id="pm-Cash" class="pay-method-btn p-2 bg-orange-50 border-2 border-orange-500 rounded-xl flex items-center justify-center gap-1.5 text-orange-600 font-bold text-xs shadow-sm">
-                    <i class="fa-solid fa-money-bill-wave text-xs"></i> Cash
-                </button>
-                <button onclick="setPaymentMethod('Card')" id="pm-Card" class="pay-method-btn p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1.5 text-slate-600 font-bold text-xs shadow-sm">
-                    <i class="fa-solid fa-credit-card text-xs"></i> Card
-                </button>
-                <button onclick="setPaymentMethod('Visa')" id="pm-Visa" class="pay-method-btn p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1.5 text-indigo-700 font-bold text-xs shadow-sm">
-                    <i class="fa-brands fa-cc-visa text-xs"></i> Visa
-                </button>
-                <button onclick="setPaymentMethod('Online')" id="pm-Online" class="pay-method-btn p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1.5 text-blue-600 font-bold text-xs shadow-sm">
-                    <i class="fa-brands fa-paypal text-xs"></i> Online
-                </button>
-                <button onclick="setPaymentMethod('UberEats')" id="pm-UberEats" class="pay-method-btn p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1.5 text-emerald-600 font-bold text-xs shadow-sm">
-                    <i class="fa-solid fa-utensils text-xs"></i> Uber
-                </button>
-                <button onclick="setPaymentMethod('PickMe')" id="pm-PickMe" class="pay-method-btn p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1.5 text-amber-600 font-bold text-xs shadow-sm">
-                    <i class="fa-solid fa-taxi text-xs"></i> PickMe
-                </button>
-            </div>
-            
-            <!-- Action Buttons Grid -->
-            <div class="grid grid-cols-2 gap-1.5">
-                <button onclick="holdOrder()" class="py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-black text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5"><i class="fa-solid fa-floppy-disk"></i> Hold</button>
-                <button onclick="printKOTDirect()" class="py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-black text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5"><i class="fa-solid fa-utensils"></i> KOT</button>
-            </div>
-            
-            <div class="grid grid-cols-2 gap-1.5">
-                <button onclick="printPreBill()" class="py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5">
-                    <i class="fa-solid fa-file-invoice"></i> Pre-Bill
-                </button>
-                <button onclick="openBillHistoryModal()" class="py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-black text-xs shadow-sm transition flex items-center justify-center gap-1.5 active:scale-95">
-                    <i class="fa-solid fa-clock-rotate-left text-amber-300"></i> History
-                </button>
-            </div>
-
-            <!-- Close Bill Button -->
-            <button onclick="processCheckout()" class="w-full py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black text-sm shadow-md transition active:scale-95 flex items-center justify-center gap-2">
-                <i class="fa-solid fa-print"></i> Close Bill & Print
-            </button>
         </div>
     </div>
 </div>
@@ -784,6 +782,7 @@ POS_HTML = """
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 </style>
+
 
 
 
