@@ -987,18 +987,14 @@ function openActiveTablesModal() {
                     '<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-black"><i class="fa-solid fa-check"></i> KOT Sent</span>' : 
                     '<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse"><i class="fa-solid fa-triangle-exclamation"></i> KOT NOT Sent!</span>';
 
-                // Admin kenek witharak nam delete button eka pennanna (session/role check from window or DOM, assuming global userRole exists or fetched)
-                // Oyaage system eke user role eka check karana variable eka (e.g. window.userRole or session role) eka methanin danna puluwan. 
-                // Ehema nathnam backend eken role pass wenne nathi nam, admin page eke witharak active tables modal eka thiyena nisa awulak na.
-                let isAdmin = (window.currentUserRole === 'admin' || document.body.dataset.userRole === 'admin' || true); // Oyaage system role variable eka match karaganna
-
-                let deleteButtonHtml = '';
-                // Assume session role eka admin nam witharak delete button eka render karai:
-                deleteButtonHtml = `
+                let deleteButtonHtml = `
                     <button onclick="deleteRunningOrder(${o.id}, '${o.table_number}')" class="w-full py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-xs shadow transition active:scale-95 flex items-center justify-center gap-1.5">
                         <i class="fa-solid fa-trash"></i> Delete Order (Admin)
                     </button>
                 `;
+
+                // Safe waiter name escape
+                let waiterNameVal = o.waiter_name || '';
 
                 html += `
                     <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col justify-between gap-3">
@@ -1009,9 +1005,10 @@ function openActiveTablesModal() {
                             </div>
                             <p class="text-xs text-slate-500 truncate max-w-[280px]">${itemsSummary}</p>
                             <span class="font-mono font-bold text-orange-600 text-xs mt-1 block">Total: LKR ${(o.total || 0).toFixed(2)}</span>
+                            <span class="text-[10px] text-slate-500 block">Waiter: <b>${waiterNameVal || 'Not Assigned'}</b></span>
                         </div>
                         <div class="flex flex-col gap-2">
-                            <button onclick='loadTableOrder(${o.id}, "${o.table_number}", ${o.subtotal || 0}, ${o.service_charge || 0}, ${o.discount || 0}, ${o.total || 0}, "${o.comment || ''}", ${JSON.stringify(o.items)}, ${o.is_kot_printed || false})' class="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold text-xs shadow transition active:scale-95">Select Table Order</button>
+                            <button onclick='loadTableOrder(${o.id}, "${o.table_number}", ${o.subtotal || 0}, ${o.service_charge || 0}, ${o.discount || 0}, ${o.total || 0}, "${o.comment || ''}", ${JSON.stringify(o.items)}, ${o.is_kot_printed || false}, "${waiterNameVal}")' class="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold text-xs shadow transition active:scale-95">Select Table Order</button>
                             ${deleteButtonHtml}
                         </div>
                     </div>
@@ -1026,6 +1023,7 @@ function openActiveTablesModal() {
         }
     });
 }
+
 
 // Order Delete Function for Admin
 function deleteRunningOrder(orderId, tableNumber) {
