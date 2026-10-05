@@ -99,33 +99,6 @@ BASE_LAYOUT = """
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        @media print {
-            body, html {
-                width: 80mm;
-                height: auto !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                background: #fff !important;
-            }
-            body * { visibility: hidden; }
-            #printable-asset-area, #printable-asset-area * { visibility: visible; }
-            #printable-asset-area { 
-                position: absolute; 
-                left: 0; 
-                top: 0; 
-                width: 80mm !important; 
-                height: max-content !important;
-                max-height: none !important;
-                display: block !important; 
-                overflow: visible !important;
-                margin: 0 !important;
-                padding: 2mm !important;
-            }
-            @page {
-                size: 80mm auto;
-                margin: 0mm;
-            }
-        }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
@@ -1230,18 +1203,40 @@ function printKOTDirect() {
         isKotPrintedStatus = true;
         updateKotIndicatorUI();
         
-        // 1. Correct HTML generation function call
-        generateKOTHtml(table, cart, comment, selectedWaiter);
-        
-        // 2. Small delay to let browser render the HTML inside printable area before printing
-        setTimeout(() => {
-            window.print();
-        }, 300);
+        // Generate KOT HTML string and print via isolated iframe to avoid multi-page print issues
+        let kotHtml = generateKOTHtmlString(table, cart, comment, selectedWaiter);
+        printViaIframe(kotHtml);
         
         fetchActiveTablesCount();
         checkTableSelection();
     });
 }
+
+function generateKOTHtmlString(table, items, comment, waiterName) {
+    let itemsStr = items.map(i => `
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+            <span><b>${i.name}</b> (x<b>${i.qty}</b>)</span>
+        </div>
+        ${i.note ? `<div style="font-size:10px; font-style:italic; padding-left:10px; margin-bottom:4px;">Note: ${i.note}</div>` : ''}
+    `).join('');
+
+    let commentSection = comment ? `<div style="margin-top:6px; font-size:11px; border-top:1px dashed black; padding-top:4px;"><b>Comment:</b> ${comment}</div>` : '';
+
+    return `
+        <div style="text-align:center; font-weight:bold; font-size:16px; margin-bottom:4px;">KITCHEN ORDER (KOT)</div>
+        <div style="border-top:1px solid black; margin:4px 0;"></div>
+        <div style="font-size:11px; margin-bottom:2px;">Table: <b>Table ${table}</b></div>
+        <div style="font-size:11px; margin-bottom:2px;">Waiter: <b>${waiterName}</b></div>
+        <div style="font-size:11px; margin-bottom:6px;">Time: ${new Date().toLocaleString()}</div>
+        <div style="border-top:1px dashed black; margin:4px 0;"></div>
+        <div style="margin-bottom:6px;">${itemsStr}</div>
+        ${commentSection}
+        <div style="border-top:1px dashed black; margin:4px 0;"></div>
+        <div style="text-align:center; font-size:10px; margin-top:6px;">*** KITCHEN COPY ***</div>
+    `;
+}
+
+
 
 function generateKOTHtml(table, items, comment, waiterName) {
     let itemsStr = '';
@@ -1388,46 +1383,94 @@ function generateReceiptHtml(table, items, sub, sc, disc, tot, method) {
     
     let scPrintLine = sc > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Service Charge:</span><span>LKR ${sc.toFixed(2)}</span></div>` : '';
 
-    // Fixed ID to match HTML (#printable-asset-area)
-    let area = document.getElementById('printable-asset-area');
-    if(area) {
-        area.innerHTML = `
-            <div style="text-align:center; font-weight:bold; font-size:15px; line-height:1.2;">THE TRIPLE EIGHT</div>
-            <div style="text-align:center; font-weight:bold; font-size:14px; margin-bottom:4px;">RESTAURANT</div>
-            <div style="text-align:center; font-size:10px; line-height:1.2; margin-bottom:2px;">Lake Road, Boralegamuwa,</div>
-            <div style="text-align:center; font-size:10px; line-height:1.2; margin-bottom:4px;">Maharagama</div>
-            <div style="text-align:center; font-size:10px; font-weight:bold; margin-bottom:6px;">Tel: 0112-888888</div>
-            <div style="border-top:1px dashed black; margin:4px 0;"></div>
-            <div style="font-size:10px; line-height:1.3;">
-                <b>Receipt No.:</b> ${receiptNo}<br>
-                <b>Date:</b> ${new Date().toLocaleString()}<br>
-                <b>Table:</b> ${table}<br>
-                <b>Payment:</b> ${method}
-            </div>
-            <div style="border-top:1px dashed black; margin:4px 0;"></div>
-            <div style="font-weight:bold; font-size:11px; margin-bottom:4px;">ITEMS:</div>
-            <div>${itemsStr}</div>
-            <div style="border-top:1px dashed black; margin:4px 0;"></div>
-            <div style="font-size:11px; line-height:1.4;">
-                <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>LKR ${sub.toFixed(2)}</span></div>
-                ${scPrintLine}
-                <div style="display:flex; justify-content:space-between;"><span>Discount:</span><span>LKR ${disc.toFixed(2)}</span></div>
-                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:12px; margin-top:2px;"><span>TOTAL:</span><span>LKR ${tot.toFixed(2)}</span></div>
-                <div style="display:flex; justify-content:space-between; margin-top:2px;"><span>Paid Amount:</span><span>LKR ${tendered.toFixed(2)}</span></div>
-                <div style="display:flex; justify-content:space-between;"><span>Change:</span><span>LKR ${change >= 0 ? change.toFixed(2) : '0.00'}</span></div>
-            </div>
-            <div style="border-top:1px dashed black; margin:6px 0;"></div>
-            <div style="text-align:center; font-size:9px; color:#333;">software@syntaxcore</div>
-            <div style="text-align:center; font-size:10px; font-weight:bold;">0788909801</div>
-            <div style="text-align:center; font-size:10px; font-weight:bold; margin-top:4px;">THANK YOU! COME AGAIN</div>
-        `;
-        
-        // Add timeout to make sure browser renders the receipt HTML before calling window.print()
-        setTimeout(() => {
-            window.print();
-        }, 300);
-    }
+    let receiptHtmlString = `
+        <div style="text-align:center; font-weight:bold; font-size:15px; line-height:1.2;">THE TRIPLE EIGHT</div>
+        <div style="text-align:center; font-weight:bold; font-size:14px; margin-bottom:4px;">RESTAURANT</div>
+        <div style="text-align:center; font-size:10px; line-height:1.2; margin-bottom:2px;">Lake Road, Boralegamuwa,</div>
+        <div style="text-align:center; font-size:10px; line-height:1.2; margin-bottom:4px;">Maharagama</div>
+        <div style="text-align:center; font-size:10px; font-weight:bold; margin-bottom:6px;">Tel: 0112-888888</div>
+        <div style="border-top:1px dashed black; margin:4px 0;"></div>
+        <div style="font-size:10px; line-height:1.3;">
+            <b>Receipt No.:</b> ${receiptNo}<br>
+            <b>Date:</b> ${new Date().toLocaleString()}<br>
+            <b>Table:</b> ${table}<br>
+            <b>Payment:</b> ${method}
+        </div>
+        <div style="border-top:1px dashed black; margin:4px 0;"></div>
+        <div style="font-weight:bold; font-size:11px; margin-bottom:4px;">ITEMS:</div>
+        <div>${itemsStr}</div>
+        <div style="border-top:1px dashed black; margin:4px 0;"></div>
+        <div style="font-size:11px; line-height:1.4;">
+            <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span>LKR ${sub.toFixed(2)}</span></div>
+            ${scPrintLine}
+            <div style="display:flex; justify-content:space-between;"><span>Discount:</span><span>LKR ${disc.toFixed(2)}</span></div>
+            <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:12px; margin-top:2px;"><span>TOTAL:</span><span>LKR ${tot.toFixed(2)}</span></div>
+            <div style="display:flex; justify-content:space-between; margin-top:2px;"><span>Paid Amount:</span><span>LKR ${tendered.toFixed(2)}</span></div>
+            <div style="display:flex; justify-content:space-between;"><span>Change:</span><span>LKR ${change >= 0 ? change.toFixed(2) : '0.00'}</span></div>
+        </div>
+        <div style="border-top:1px dashed black; margin:6px 0;"></div>
+        <div style="text-align:center; font-size:9px; color:#333;">software@syntaxcore</div>
+        <div style="text-align:center; font-size:10px; font-weight:bold;">0788909801</div>
+        <div style="text-align:center; font-size:10px; font-weight:bold; margin-top:4px;">THANK YOU! COME AGAIN</div>
+    `;
+
+    // Print using isolated iframe to avoid multi-page dashboard layout bugs
+    printViaIframe(receiptHtmlString);
 }
+
+// Shared iframe print helper function (danna nathnam mekakuth daaganna)
+function printViaIframe(htmlContent) {
+    let iframe = document.getElementById('thermal-print-iframe');
+    if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'thermal-print-iframe';
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = 'none';
+        document.body.appendChild(iframe);
+    }
+    
+    let doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                @page {
+                    size: 80mm auto;
+                    margin: 0mm;
+                }
+                body {
+                    width: 80mm;
+                    margin: 0;
+                    padding: 4mm;
+                    font-family: monospace;
+                    font-size: 11px;
+                    background: #fff;
+                    color: #000;
+                }
+                * { box-sizing: border-box; }
+            </style>
+        </head>
+        <body>
+            ${htmlContent}
+        </body>
+        </html>
+    `);
+    doc.close();
+    
+    setTimeout(() => {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+    }, 300);
+}
+
+
 
 
 function filterProducts() {
@@ -1506,11 +1549,11 @@ function closeBillHistoryModal() {
 function reprintBill(billData) {
     let itemsParsed = typeof billData.items === 'string' ? JSON.parse(billData.items) : (billData.items || []);
     let itemsStr = itemsParsed.map(i => `
-        <div style="display:flex; justify-content:space-between; font-size:11px;">
+        <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
             <span>${i.name} x${i.qty || i.quantity}</span>
             <span>LKR ${((i.price || 0)*(i.qty || i.quantity || 1)).toFixed(2)}</span>
         </div>
-        ${i.note ? `<div style="font-size:9px; font-style:italic; padding-left:8px;">- ${i.note}</div>` : ''}
+        ${i.note ? `<div style="font-size:9px; font-style:italic; padding-left:8px; margin-bottom:2px;">- ${i.note}</div>` : ''}
     `).join('');
     
     let sub = billData.subtotal || billData.total || 0;
@@ -1521,22 +1564,21 @@ function reprintBill(billData) {
     
     let scPrintLine = sc > 0 ? `Service Charge: LKR ${sc.toFixed(2)}<br>` : '';
 
-    let area = document.getElementById('printable-area');
-    if(area) {
-        area.innerHTML = `
-            <div style="text-align:center; font-weight:bold; font-size:13px;">THE TRIPLE EIGHT</div>
-            <div style="text-align:center; font-size:9px; margin-bottom:4px;">*** DUPLICATE / RE-PRINT BILL ***</div>
-            <div style="border-top:1px dashed black; margin:4px 0;"></div>
-            <div style="font-size:10px;">Table: ${billData.table_number}<br>Date: ${billData.created_at || new Date().toLocaleString()}<br>Payment: ${method}</div>
-            <div style="border-top:1px dashed black; margin:4px 0;"></div>
-            <div>${itemsStr}</div>
-            <div style="border-top:1px dashed black; margin:4px 0;"></div>
-            <div style="font-size:11px;">Subtotal: LKR ${sub.toFixed(2)}<br>${scPrintLine}Discount: LKR ${disc.toFixed(2)}<br><b>TOTAL: LKR ${tot.toFixed(2)}</b></div>
-            <div style="border-top:1px dashed black; margin:4px 0;"></div>
-            <div style="text-align:center; font-size:10px; margin-top:6px; font-weight:bold;">THANK YOU! COME AGAIN</div>
-        `;
-    }
-    window.print();
+    let reprintHtml = `
+        <div style="text-align:center; font-weight:bold; font-size:13px;">THE TRIPLE EIGHT</div>
+        <div style="text-align:center; font-size:9px; margin-bottom:4px;">*** DUPLICATE / RE-PRINT BILL ***</div>
+        <div style="border-top:1px dashed black; margin:4px 0;"></div>
+        <div style="font-size:10px;">Table: ${billData.table_number}<br>Date: ${billData.created_at || new Date().toLocaleString()}<br>Payment: ${method}</div>
+        <div style="border-top:1px dashed black; margin:4px 0;"></div>
+        <div>${itemsStr}</div>
+        <div style="border-top:1px dashed black; margin:4px 0;"></div>
+        <div style="font-size:11px;">Subtotal: LKR ${sub.toFixed(2)}<br>${scPrintLine}Discount: LKR ${disc.toFixed(2)}<br><b>TOTAL: LKR ${tot.toFixed(2)}</b></div>
+        <div style="border-top:1px dashed black; margin:4px 0;"></div>
+        <div style="text-align:center; font-size:10px; margin-top:6px; font-weight:bold;">THANK YOU! COME AGAIN</div>
+    `;
+
+    // Print using isolated iframe to avoid multi-page layout issues
+    printViaIframe(reprintHtml);
     closeBillHistoryModal();
 }
 
@@ -1550,15 +1592,14 @@ function printPreBill() {
     let discount = window.calculatedDiscount || 0;
     let total = window.calculatedTotal || 0;
 
-    generatePreBillHtml(table, cart, subtotal, serviceCharge, discount, total, selectedWaiter);
+    let preBillHtml = generatePreBillHtmlString(table, cart, subtotal, serviceCharge, discount, total, selectedWaiter);
     
-    // Small delay to let browser render the HTML inside printable asset area before triggering print
-    setTimeout(() => {
-        window.print();
-    }, 300);
+    // Print using isolated iframe
+    printViaIframe(preBillHtml);
 }
 
-function generatePreBillHtml(table, items, subtotal, serviceCharge, discount, total, waiterName) {
+// Helper function to generate Pre-Bill HTML string (if not already there)
+function generatePreBillHtmlString(table, items, subtotal, serviceCharge, discount, total, waiterName) {
     let itemsStr = items.map(i => `
         <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
             <span>${i.name} (x${i.qty})</span>
@@ -1569,25 +1610,21 @@ function generatePreBillHtml(table, items, subtotal, serviceCharge, discount, to
 
     let scPrintLine = serviceCharge > 0 ? `<div style="display:flex; justify-content:space-between; font-size:11px;"><span>Service Charge:</span><span>LKR ${serviceCharge.toFixed(2)}</span></div>` : '';
 
-    // Fixed ID here to match the CSS layout template (#printable-asset-area)
-    let area = document.getElementById('printable-asset-area');
-    if(area) {
-        area.innerHTML = `
-            <div style="text-align:center; font-weight:black; font-size:15px; margin-bottom:2px;">THE TRIPLE EIGHT</div>
-            <div style="text-align:center; font-size:10px; margin-bottom:6px;">*** TEMPORARY PRE-BILL ***</div>
-            <div style="font-size:10px; margin-bottom:2px;">Table: <b>Table ${table}</b> | Waiter: <b>${waiterName}</b></div>
-            <div style="font-size:10px; margin-bottom:6px;">Time: ${new Date().toLocaleString()}</div>
-            <div style="border-top:1px dashed black; margin:4px 0;"></div>
-            <div style="margin-bottom:6px;">${itemsStr}</div>
-            <div style="border-top:1px dashed black; margin:4px 0;"></div>
-            <div style="display:flex; justify-content:space-between; font-size:11px;"><span>Subtotal:</span><span>LKR ${subtotal.toFixed(2)}</span></div>
-            ${scPrintLine}
-            <div style="display:flex; justify-content:space-between; font-size:11px;"><span>Discount:</span><span>LKR ${discount.toFixed(2)}</span></div>
-            <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:bold; margin-top:2px;"><span>TOTAL DUE:</span><span>LKR ${total.toFixed(2)}</span></div>
-            <div style="border-top:1px dashed black; margin:4px 0;"></div>
-            <div style="text-align:center; font-size:9px; margin-top:6px;">* This is not a final tax invoice *</div>
-        `;
-    }
+    return `
+        <div style="text-align:center; font-weight:black; font-size:15px; margin-bottom:2px;">THE TRIPLE EIGHT</div>
+        <div style="text-align:center; font-size:10px; margin-bottom:6px;">*** TEMPORARY PRE-BILL ***</div>
+        <div style="font-size:10px; margin-bottom:2px;">Table: <b>Table ${table}</b> | Waiter: <b>${waiterName}</b></div>
+        <div style="font-size:10px; margin-bottom:6px;">Time: ${new Date().toLocaleString()}</div>
+        <div style="border-top:1px dashed black; margin:4px 0;"></div>
+        <div style="margin-bottom:6px;">${itemsStr}</div>
+        <div style="border-top:1px dashed black; margin:4px 0;"></div>
+        <div style="display:flex; justify-content:space-between; font-size:11px;"><span>Subtotal:</span><span>LKR ${subtotal.toFixed(2)}</span></div>
+        ${scPrintLine}
+        <div style="display:flex; justify-content:space-between; font-size:11px;"><span>Discount:</span><span>LKR ${discount.toFixed(2)}</span></div>
+        <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:bold; margin-top:2px;"><span>TOTAL DUE:</span><span>LKR ${total.toFixed(2)}</span></div>
+        <div style="border-top:1px dashed black; margin:4px 0;"></div>
+        <div style="text-align:center; font-size:9px; margin-top:6px;">* This is not a final tax invoice *</div>
+    `;
 }
 </script>
 """
