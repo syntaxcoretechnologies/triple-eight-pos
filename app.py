@@ -532,8 +532,8 @@ USERS_HTML = """
 
 POS_HTML = """
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 h-full font-sans">
-    <!-- Main Center Area: Categories, Products & Table Status -->
-    <div class="lg:col-span-8 flex flex-col gap-4 overflow-hidden">
+    <!-- Main Center Area: Categories, Products & Table Status (Col Span 7) -->
+    <div class="lg:col-span-7 flex flex-col gap-4 overflow-hidden">
         <!-- Search & Table Quick Switch Bar -->
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <div class="relative flex-1">
@@ -586,7 +586,7 @@ POS_HTML = """
         </div>
 
         <!-- Product Grid - Responsive Columns Grid (Click to Add) -->
-        <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 overflow-y-auto flex-1 p-1">
+        <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 overflow-y-auto flex-1 p-1">
             {% for item in inventory %}
             <div onclick="addToCart('{{ item.sku }}', '{{ item.name }}', {{ item.price }})" class="product-card bg-white p-2.5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between relative group hover:shadow-md hover:border-orange-500 cursor-pointer transition active:scale-95 aspect-square" data-category="{{ item.category|lower }}">
                 
@@ -617,19 +617,19 @@ POS_HTML = """
         </div>
     </div>
     
-    <!-- Right Sidebar: Cashier Billing Invoice -->
-    <div class="lg:col-span-4 bg-white rounded-3xl border border-slate-200 shadow-lg p-3 flex flex-col h-auto lg:h-full overflow-hidden">
+    <!-- Right Sidebar: Cashier Billing Invoice (Col Span 5 - Expanded for Clarity) -->
+    <div class="lg:col-span-5 bg-white rounded-3xl border border-slate-200 shadow-xl p-4 flex flex-col h-auto lg:h-full overflow-hidden">
         <!-- Top Title & Table Info (Fixed) -->
-        <div class="flex justify-between items-center mb-2 flex-shrink-0">
-            <h3 class="font-black text-base text-slate-800">Cashier Billing</h3>
-            <span id="active-table-badge" class="text-[11px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-lg font-black hidden">Running Order</span>
+        <div class="flex justify-between items-center mb-2.5 flex-shrink-0">
+            <h3 class="font-black text-lg text-slate-800">Cashier Billing</h3>
+            <span id="active-table-badge" class="text-xs bg-amber-50 text-amber-700 px-2.5 py-1 rounded-lg font-black hidden">Running Order</span>
         </div>
 
-        <div class="grid grid-cols-2 gap-1.5 mb-1.5 flex-shrink-0">
-            <select id="pos-table" onchange="checkTableSelection()" class="p-1.5 bg-slate-50 border rounded-xl font-bold text-slate-700 text-xs outline-none">
+        <div class="grid grid-cols-2 gap-2 mb-2 flex-shrink-0">
+            <select id="pos-table" onchange="checkTableSelection()" class="p-2 bg-slate-50 border rounded-xl font-bold text-slate-700 text-xs outline-none">
                 {% for t in tables %}<option value="{{ t.table_number }}">Table {{ t.table_number }}</option>{% endfor %}
             </select>
-            <select id="pos-waiter" class="p-1.5 bg-slate-50 border rounded-xl font-bold text-slate-700 text-xs outline-none">
+            <select id="pos-waiter" class="p-2 bg-slate-50 border rounded-xl font-bold text-slate-700 text-xs outline-none">
                 <option value="" disabled selected>-- Waiter --</option>
                 {% for w in waiters %}
                 <option value="{{ w.name }}">{{ w.name }}</option>
@@ -637,42 +637,42 @@ POS_HTML = """
             </select>
         </div>
 
-        <input type="text" id="pos-comment" placeholder="Special Billing / KOT Note" class="w-full p-1.5 bg-slate-50 border rounded-xl font-medium text-slate-700 text-xs outline-none mb-1.5 flex-shrink-0">
+        <input type="text" id="pos-comment" placeholder="Special Billing / KOT Note" class="w-full p-2 bg-slate-50 border rounded-xl font-medium text-slate-700 text-xs outline-none mb-2 flex-shrink-0">
 
-        <!-- CART ITEMS LIST (Expanded to take max available space and scrollable) -->
-        <div id="cart-list" class="space-y-1.5 overflow-y-auto max-h-[250px] lg:max-h-none flex-1 pr-1 mb-1.5 border-y border-slate-100 py-1.5">
+        <!-- CART ITEMS LIST (Expanded to show more items clearly for cashier) -->
+        <div id="cart-list" class="space-y-2 overflow-y-auto max-h-[340px] lg:max-h-none flex-1 pr-1 mb-2 border-y border-slate-100 py-2">
             <!-- Dynamically added items will appear here -->
         </div>
 
-        <!-- BOTTOM CONTROLS & ACTIONS CONTAINER (Optimized & Compact) -->
-        <div class="space-y-1.5 flex-shrink-0">
-            <!-- Service Charge Quick Control Bar (Compact) -->
-            <div class="bg-indigo-50/60 px-2.5 py-1.5 rounded-xl border border-indigo-100 flex items-center justify-between">
+        <!-- BOTTOM CONTROLS & ACTIONS CONTAINER -->
+        <div class="space-y-2 flex-shrink-0">
+            <!-- Service Charge Quick Control Bar -->
+            <div class="bg-indigo-50/60 px-3 py-2 rounded-xl border border-indigo-100 flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                    <input type="checkbox" id="pos-service-charge-toggle" checked onchange="renderCart()" class="w-3.5 h-3.5 text-orange-500 rounded focus:ring-orange-400 cursor-pointer">
-                    <label for="pos-service-charge-toggle" class="text-[11px] font-black text-slate-700 cursor-pointer">Service Charge</label>
+                    <input type="checkbox" id="pos-service-charge-toggle" checked onchange="renderCart()" class="w-4 h-4 text-orange-500 rounded focus:ring-orange-400 cursor-pointer">
+                    <label for="pos-service-charge-toggle" class="text-xs font-black text-slate-700 cursor-pointer">Service Charge</label>
                 </div>
                 <div class="flex items-center gap-1">
-                    <input type="number" id="pos-service-charge-rate" value="10" oninput="renderCart()" class="w-10 p-0.5 bg-white border border-indigo-200 rounded-lg text-right font-mono text-xs font-bold outline-none">
-                    <span class="text-[11px] font-bold text-slate-500">%</span>
+                    <input type="number" id="pos-service-charge-rate" value="10" oninput="renderCart()" class="w-12 p-1 bg-white border border-indigo-200 rounded-lg text-right font-mono text-xs font-bold outline-none">
+                    <span class="text-xs font-bold text-slate-500">%</span>
                 </div>
             </div>
 
-            <!-- Payment Summary Box (Compact) -->
-            <div class="bg-slate-50 p-2 rounded-xl border border-slate-100 space-y-1">
-                <div class="flex justify-between items-center text-[11px] font-bold text-slate-500">
-                    <span>Sub Total</span> <span id="cart-subtotal" class="font-mono text-slate-700">LKR 0.00</span>
+            <!-- Payment Summary Box -->
+            <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1.5">
+                <div class="flex justify-between items-center text-xs font-bold text-slate-500">
+                    <span>Sub Total</span> <span id="cart-subtotal" class="font-mono text-slate-700 text-xs">LKR 0.00</span>
                 </div>
 
-                <div id="service-charge-row" class="flex justify-between items-center text-[11px] font-bold text-slate-500">
-                    <span id="service-charge-label">Service Charge (10%)</span> <span id="cart-service-charge" class="font-mono text-slate-700">LKR 0.00</span>
+                <div id="service-charge-row" class="flex justify-between items-center text-xs font-bold text-slate-500">
+                    <span id="service-charge-label">Service Charge (10%)</span> <span id="cart-service-charge" class="font-mono text-slate-700 text-xs">LKR 0.00</span>
                 </div>
 
-                <div class="flex justify-between items-center text-[11px] font-bold text-slate-500">
+                <div class="flex justify-between items-center text-xs font-bold text-slate-500">
                     <span>Discount</span> 
                     <div class="flex gap-1 items-center">
-                        <input type="number" id="discount-val" placeholder="0" oninput="renderCart()" class="w-12 p-0.5 bg-white border rounded-lg text-right text-[11px] font-bold outline-none">
-                        <select id="discount-type" onchange="renderCart()" class="p-0.5 bg-white border rounded-lg text-[11px] font-bold outline-none">
+                        <input type="number" id="discount-val" placeholder="0" oninput="renderCart()" class="w-14 p-1 bg-white border rounded-lg text-right text-xs font-bold outline-none">
+                        <select id="discount-type" onchange="renderCart()" class="p-1 bg-white border rounded-lg text-xs font-bold outline-none">
                             <option value="lkr">LKR</option>
                             <option value="percent">%</option>
                         </select>
@@ -680,62 +680,62 @@ POS_HTML = """
                 </div>
                 
                 <!-- Total Amount -->
-                <div class="flex justify-between items-center font-black pt-1 border-t border-slate-200">
-                    <span class="text-slate-900 text-xs">TOTAL</span> <span id="cart-total" class="text-orange-600 font-mono text-base">LKR 0.00</span>
+                <div class="flex justify-between items-center font-black pt-1.5 border-t border-slate-200">
+                    <span class="text-slate-900 text-sm">TOTAL</span> <span id="cart-total" class="text-orange-600 font-mono text-lg">LKR 0.00</span>
                 </div>
 
-                <!-- Cash Tendered & Balance (Compact) -->
-                <div id="inline-cash-box" class="pt-1 border-t border-slate-200 space-y-0.5 bg-orange-50/50 p-1.5 rounded-lg border border-orange-100">
+                <!-- Cash Tendered & Balance -->
+                <div id="inline-cash-box" class="pt-1.5 border-t border-slate-200 space-y-1 bg-orange-50/50 p-2 rounded-xl border border-orange-100">
                     <div class="flex justify-between items-center">
-                        <span class="text-[10px] font-black uppercase text-slate-700">Given Cash:</span>
-                        <input type="number" id="inline-cash-tendered" placeholder="0.00" oninput="calculateInlineChange()" class="w-24 p-1 bg-white border border-orange-300 rounded-lg text-right font-mono font-black text-slate-900 text-xs outline-none focus:border-orange-500 shadow-inner">
+                        <span class="text-xs font-black uppercase text-slate-700">Given Cash:</span>
+                        <input type="number" id="inline-cash-tendered" placeholder="0.00" oninput="calculateInlineChange()" class="w-28 p-1.5 bg-white border border-orange-300 rounded-lg text-right font-mono font-black text-slate-900 text-xs outline-none focus:border-orange-500 shadow-inner">
                     </div>
                     <div class="flex justify-between items-center">
-                        <span class="text-[10px] font-black uppercase text-emerald-700">Change:</span>
-                        <span id="inline-modal-change" class="font-mono font-black text-emerald-600 text-xs">LKR 0.00</span>
+                        <span class="text-xs font-black uppercase text-emerald-700">Change:</span>
+                        <span id="inline-modal-change" class="font-mono font-black text-emerald-600 text-sm">LKR 0.00</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Payment Method Selectors (Compact 2 Rows x 3 Columns) -->
-            <div class="grid grid-cols-3 gap-1">
-                <button onclick="setPaymentMethod('Cash')" id="pm-Cash" class="pay-method-btn p-1.5 bg-orange-50 border-2 border-orange-500 rounded-xl flex items-center justify-center gap-1 text-orange-600 font-bold text-[11px] shadow-sm">
-                    <i class="fa-solid fa-money-bill-wave text-[10px]"></i> Cash
+            <!-- Payment Method Selectors -->
+            <div class="grid grid-cols-3 gap-1.5">
+                <button onclick="setPaymentMethod('Cash')" id="pm-Cash" class="pay-method-btn p-2 bg-orange-50 border-2 border-orange-500 rounded-xl flex items-center justify-center gap-1.5 text-orange-600 font-bold text-xs shadow-sm">
+                    <i class="fa-solid fa-money-bill-wave text-xs"></i> Cash
                 </button>
-                <button onclick="setPaymentMethod('Card')" id="pm-Card" class="pay-method-btn p-1.5 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1 text-slate-600 font-bold text-[11px] shadow-sm">
-                    <i class="fa-solid fa-credit-card text-[10px]"></i> Card
+                <button onclick="setPaymentMethod('Card')" id="pm-Card" class="pay-method-btn p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1.5 text-slate-600 font-bold text-xs shadow-sm">
+                    <i class="fa-solid fa-credit-card text-xs"></i> Card
                 </button>
-                <button onclick="setPaymentMethod('Visa')" id="pm-Visa" class="pay-method-btn p-1.5 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1 text-indigo-700 font-bold text-[11px] shadow-sm">
-                    <i class="fa-brands fa-cc-visa text-[10px]"></i> Visa
+                <button onclick="setPaymentMethod('Visa')" id="pm-Visa" class="pay-method-btn p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1.5 text-indigo-700 font-bold text-xs shadow-sm">
+                    <i class="fa-brands fa-cc-visa text-xs"></i> Visa
                 </button>
-                <button onclick="setPaymentMethod('Online')" id="pm-Online" class="pay-method-btn p-1.5 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1 text-blue-600 font-bold text-[11px] shadow-sm">
-                    <i class="fa-brands fa-paypal text-[10px]"></i> Online
+                <button onclick="setPaymentMethod('Online')" id="pm-Online" class="pay-method-btn p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1.5 text-blue-600 font-bold text-xs shadow-sm">
+                    <i class="fa-brands fa-paypal text-xs"></i> Online
                 </button>
-                <button onclick="setPaymentMethod('UberEats')" id="pm-UberEats" class="pay-method-btn p-1.5 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1 text-emerald-600 font-bold text-[11px] shadow-sm">
-                    <i class="fa-solid fa-utensils text-[10px]"></i> Uber
+                <button onclick="setPaymentMethod('UberEats')" id="pm-UberEats" class="pay-method-btn p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1.5 text-emerald-600 font-bold text-xs shadow-sm">
+                    <i class="fa-solid fa-utensils text-xs"></i> Uber
                 </button>
-                <button onclick="setPaymentMethod('PickMe')" id="pm-PickMe" class="pay-method-btn p-1.5 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1 text-amber-600 font-bold text-[11px] shadow-sm">
-                    <i class="fa-solid fa-taxi text-[10px]"></i> PickMe
+                <button onclick="setPaymentMethod('PickMe')" id="pm-PickMe" class="pay-method-btn p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center gap-1.5 text-amber-600 font-bold text-xs shadow-sm">
+                    <i class="fa-solid fa-taxi text-xs"></i> PickMe
                 </button>
             </div>
             
-            <!-- Action Buttons Grid (Compact) -->
-            <div class="grid grid-cols-2 gap-1">
-                <button onclick="holdOrder()" class="py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-black text-[11px] shadow-sm transition active:scale-95 flex items-center justify-center gap-1"><i class="fa-solid fa-floppy-disk"></i> Hold</button>
-                <button onclick="printKOTDirect()" class="py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-black text-[11px] shadow-sm transition active:scale-95 flex items-center justify-center gap-1"><i class="fa-solid fa-utensils"></i> KOT</button>
+            <!-- Action Buttons Grid -->
+            <div class="grid grid-cols-2 gap-1.5">
+                <button onclick="holdOrder()" class="py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-black text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5"><i class="fa-solid fa-floppy-disk"></i> Hold</button>
+                <button onclick="printKOTDirect()" class="py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-black text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5"><i class="fa-solid fa-utensils"></i> KOT</button>
             </div>
             
-            <div class="grid grid-cols-2 gap-1">
-                <button onclick="printPreBill()" class="py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-[11px] shadow-sm transition active:scale-95 flex items-center justify-center gap-1">
+            <div class="grid grid-cols-2 gap-1.5">
+                <button onclick="printPreBill()" class="py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5">
                     <i class="fa-solid fa-file-invoice"></i> Pre-Bill
                 </button>
-                <button onclick="openBillHistoryModal()" class="py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-black text-[11px] shadow-sm transition flex items-center justify-center gap-1 active:scale-95">
+                <button onclick="openBillHistoryModal()" class="py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-black text-xs shadow-sm transition flex items-center justify-center gap-1.5 active:scale-95">
                     <i class="fa-solid fa-clock-rotate-left text-amber-300"></i> History
                 </button>
             </div>
 
             <!-- Close Bill Button -->
-            <button onclick="processCheckout()" class="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-2">
+            <button onclick="processCheckout()" class="w-full py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black text-sm shadow-md transition active:scale-95 flex items-center justify-center gap-2">
                 <i class="fa-solid fa-print"></i> Close Bill & Print
             </button>
         </div>
