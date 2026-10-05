@@ -106,7 +106,7 @@ BASE_LAYOUT = """
 <body class="bg-slate-100 font-sans min-h-screen lg:h-screen flex flex-col overflow-x-hidden lg:overflow-hidden select-none">
     <header class="bg-indigo-900 text-white px-4 md:px-6 py-3 md:py-4 flex justify-between items-center shadow-lg print:hidden relative z-50">
         <div class="flex items-center gap-3">
-            <!-- Logo Image Added Here -->
+            <!-- Logo Image -->
             <img src="{{ url_for('static', filename='images/logo.png') }}" alt="The 888 Logo" class="w-10 h-10 md:w-11 md:h-11 rounded-2xl object-cover border border-indigo-700 shadow-md">
             <div>
                 <h1 class="text-base md:text-lg font-black tracking-wide">888 Restaurant</h1>
@@ -121,6 +121,7 @@ BASE_LAYOUT = """
                 <a href="/pos" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition flex items-center gap-1.5"><i class="fa-solid fa-cash-register"></i> POS</a>
                 <a href="/kitchen" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition flex items-center gap-1.5"><i class="fa-solid fa-utensils"></i> KOT</a>
                 <a href="/tables" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition flex items-center gap-1.5"><i class="fa-solid fa-chair"></i> Tables</a>
+                <a href="/admin/running-orders" class="px-3 py-2 rounded-xl bg-orange-600/30 hover:bg-orange-600 text-orange-200 hover:text-white transition flex items-center gap-1.5"><i class="fa-solid fa-shield-halved"></i> Active Orders</a>
                 <a href="/inventory" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition flex items-center gap-1.5"><i class="fa-solid fa-boxes-stacked"></i> Inventory</a>
                 <a href="/waiters" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition flex items-center gap-1.5"><i class="fa-solid fa-user-tie"></i> Waiters</a>
                 <a href="/reports" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition flex items-center gap-1.5"><i class="fa-solid fa-chart-line"></i> Reports</a>
@@ -147,6 +148,7 @@ BASE_LAYOUT = """
             <a href="/pos" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 transition flex items-center gap-3 text-sm font-bold"><i class="fa-solid fa-cash-register text-orange-400"></i> POS</a>
             <a href="/kitchen" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 transition flex items-center gap-3 text-sm font-bold"><i class="fa-solid fa-utensils text-orange-400"></i> KOT</a>
             <a href="/tables" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 transition flex items-center gap-3 text-sm font-bold"><i class="fa-solid fa-chair text-orange-400"></i> Tables</a>
+            <a href="/admin/running-orders" class="px-3 py-2.5 rounded-xl bg-orange-600/30 text-orange-200 hover:bg-orange-600 hover:text-white transition flex items-center gap-3 text-sm font-bold"><i class="fa-solid fa-shield-halved"></i> Active Orders (Admin)</a>
             <a href="/inventory" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 transition flex items-center gap-3 text-sm font-bold"><i class="fa-solid fa-boxes-stacked text-orange-400"></i> Inventory</a>
             <a href="/waiters" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 transition flex items-center gap-3 text-sm font-bold"><i class="fa-solid fa-user-tie text-orange-400"></i> Waiters</a>
             <a href="/reports" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 transition flex items-center gap-3 text-sm font-bold"><i class="fa-solid fa-chart-line text-orange-400"></i> Reports</a>
@@ -174,6 +176,7 @@ BASE_LAYOUT = """
 </body>
 </html>
 """
+
 
 def render_template_custom(template_str, **kwargs):
     return render_template_string(
@@ -1715,6 +1718,110 @@ QR_HTML = """
 </script>
 """
 
+ADMIN_ORDERS_HTML = """
+<div class="flex flex-col h-full font-sans gap-4 p-2 sm:p-4 bg-slate-100 overflow-hidden">
+    
+    <!-- Top Header Bar -->
+    <div class="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+            <h2 class="font-black text-xl sm:text-2xl text-slate-800"><i class="fa-solid fa-shield-halved text-orange-500 mr-2"></i> Admin: Active Running Orders</h2>
+            <p class="text-xs text-slate-400 font-medium">Monitor all active table orders in real-time and manage cancellations.</p>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+            <button onclick="loadAdminRunningOrders()" class="flex-1 sm:flex-none py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-black text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+            <a href="/" class="flex-1 sm:flex-none py-2.5 px-5 bg-slate-900 hover:bg-black text-white rounded-2xl font-black text-xs shadow transition active:scale-95 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-arrow-left"></i> Back to POS
+            </a>
+        </div>
+    </div>
+
+    <!-- Active Orders Grid Area -->
+    <div class="flex-1 overflow-y-auto pr-1">
+        <div id="admin-orders-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="col-span-full text-center py-12 text-slate-400 font-semibold text-sm bg-white rounded-3xl border border-slate-200">
+                Loading active orders...
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        loadAdminRunningOrders();
+        // Auto refresh every 10 seconds
+        setInterval(loadAdminRunningOrders, 10000);
+    });
+
+    function loadAdminRunningOrders() {
+        fetch('/api/orders/held')
+            .then(res => res.json())
+            .then(orders => {
+                let container = document.getElementById('admin-orders-grid');
+                let html = '';
+
+                if(!orders || orders.length === 0) {
+                    container.innerHTML = '<div class="col-span-full text-center py-16 text-slate-400 font-semibold text-sm bg-white rounded-3xl border border-slate-200">No active running orders on tables right now.</div>';
+                    return;
+                }
+
+                orders.forEach(o => {
+                    let itemsParsed = typeof o.items === 'string' ? JSON.parse(o.items) : o.items;
+                    let itemsSummary = itemsParsed.map(i => `${i.name} (x${i.qty || i.quantity})`).join(', ');
+                    let kotBadge = o.is_kot_printed ? 
+                        '<span class="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full text-[10px] font-black"><i class="fa-solid fa-check"></i> KOT Sent</span>' : 
+                        '<span class="bg-rose-100 text-rose-700 px-2.5 py-1 rounded-full text-[10px] font-black animate-pulse"><i class="fa-solid fa-triangle-exclamation"></i> KOT NOT Sent!</span>';
+
+                    let waiterNameVal = o.waiter_name || 'Not Assigned';
+
+                    html += `
+                        <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between gap-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-3">
+                                    <h4 class="font-black text-slate-800 text-base flex items-center gap-2">
+                                        <i class="fa-solid fa-utensils text-orange-500 text-sm"></i> Table ${o.table_number}
+                                    </h4>
+                                    ${kotBadge}
+                                </div>
+                                <p class="text-xs text-slate-500 mb-3 bg-slate-50 p-3 rounded-2xl border border-slate-100 line-clamp-3">${itemsSummary}</p>
+                                <div class="space-y-1 text-xs">
+                                    <p class="text-slate-500">Assigned Waiter: <b class="text-slate-800">${waiterNameVal}</b></p>
+                                    <p class="font-mono font-black text-orange-600 text-sm mt-1">Total: LKR ${(o.total || 0).toFixed(2)}</p>
+                                </div>
+                            </div>
+                            <div>
+                                <button onclick="deleteAdminOrder(${o.id}, '${o.table_number}')" class="w-full py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black text-xs shadow transition active:scale-95 flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-trash"></i> Delete Order (Admin)
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            }).catch(err => {
+                console.error("Error loading running orders:", err);
+            });
+    }
+
+    function deleteAdminOrder(orderId, tableNum) {
+        if(!confirm(`Are you sure you want to delete the active running order for Table ${tableNum}?`)) return;
+
+        fetch(`/api/order/${orderId}`, {
+            method: 'DELETE'
+        })
+        .then(res => res.json())
+        .then(data => {
+            alert('Running order deleted successfully!');
+            loadAdminRunningOrders();
+        })
+        .catch(err => {
+            alert('Error deleting order!');
+        });
+    }
+</script>
+"""
+
 TABLES_HTML = """
 <div class="flex-1 p-2 sm:p-4 overflow-y-auto flex flex-col font-sans">
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
@@ -2183,6 +2290,8 @@ INVENTORY_HTML = """
     }
 </script>
 """
+
+
 
 REPORTS_HTML = """
 <div class="flex flex-col h-full font-sans gap-4 p-2 sm:p-4 bg-slate-100 overflow-hidden">
@@ -3146,6 +3255,13 @@ def get_menu_items():
             'image': img,
         })
     return jsonify(result)
+
+@app.route('/admin/running-orders')
+def admin_running_orders():
+    # Admin role check
+    if session.get('user_role') != 'admin':
+        return "Access Denied! Admins only.", 403
+    return render_template_string(admin_orders_html)
 
 
 @app.route('/orders/complete/<int:order_id>')
