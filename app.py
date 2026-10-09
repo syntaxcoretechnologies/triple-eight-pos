@@ -1342,27 +1342,44 @@ function processCheckout() {
     let table = document.getElementById('pos-table').value;
     let comment = document.getElementById('pos-comment').value;
 
+    // 1. Data variables save karagannawa current state eken
+    let currentCart = [...cart];
+    let runningOrderId = activeRunningOrderId;
+    let sub = window.calculatedSubtotal;
+    let sc = window.calculatedServiceCharge;
+    let disc = window.calculatedDiscount;
+    let tot = window.calculatedTotal;
+    let method = currentPaymentMethod;
+
+    // 2. SERVER RESPONSE ENNAKAL BALAN INNE NATHUWA - INSTANT PRINT & RESET
+    generateReceiptHtml(table, currentCart, sub, sc, disc, tot, method);
+    resetPOS();
+    fetchActiveTablesCount();
+
+    // 3. Background eke server ekata (Railway / MongoDB) order eka save wenawa
     fetch('/api/order', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
-            order_id: activeRunningOrderId,
+            order_id: runningOrderId,
             table_number: table,
             waiter_name: selectedWaiter,
-            items: cart,
+            items: currentCart,
             comment: comment,
-            subtotal: window.calculatedSubtotal,
-            service_charge: window.calculatedServiceCharge,
-            discount: window.calculatedDiscount,
-            total: window.calculatedTotal,
-            payment_method: currentPaymentMethod,
+            subtotal: sub,
+            service_charge: sc,
+            discount: disc,
+            total: tot,
+            payment_method: method,
             is_kot_printed: true
         })
-    }).then(res => res.json()).then(data => {
-        generateReceiptHtml(table, cart, window.calculatedSubtotal, window.calculatedServiceCharge, window.calculatedDiscount, window.calculatedTotal, currentPaymentMethod, selectedWaiter);
-        // window.print(); ---> Me parana line eka ain kala!
-        resetPOS();
-        fetchActiveTablesCount();
+    })
+    .then(res => res.json())
+    .then(data => {
+        console.log('Order successfully saved to database:', data);
+    })
+    .catch(err => {
+        console.error('Background order save error:', err);
     });
 }
 
@@ -1480,6 +1497,7 @@ function printViaIframe(htmlContent) {
         iframe.contentWindow.print();
     }, 50);
 }
+
 
 
 
