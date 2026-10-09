@@ -1753,13 +1753,28 @@ QR_HTML = """
         let price = parseFloat(itemSel.options[itemSel.selectedIndex].getAttribute('data-price'));
         let qty = parseInt(document.getElementById('qr-qty').value);
         let comment = document.getElementById('qr-comment').value;
+        let totalAmount = price * qty;
 
-        fetch('/api/order', {
+        fetch('/api/qr/order', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({table_number: '{{ table_id }}', waiter_name: 'Customer (QR)', items: [{sku, name, price, qty}], comment: comment, subtotal: price*qty, discount: 0, total: price*qty, payment_method: 'Pending'})
+            body: JSON.stringify({
+                table_number: '{{ table_id }}', 
+                items: [{sku, name, price, qty}], 
+                comment: comment, 
+                subtotal: totalAmount, 
+                discount: 0, 
+                service_charge: 0,
+                total: totalAmount
+            })
         }).then(res => res.json()).then(data => {
             alert('Order placed successfully via QR!');
+            // Optional: form eka clear karanna puluwan
+            document.getElementById('qr-comment').value = '';
+            document.getElementById('qr-qty').value = '1';
+        }).catch(err => {
+            console.error('Error:', err);
+            alert('Failed to place order. Please try again.');
         });
     }
 </script>
