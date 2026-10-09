@@ -1299,7 +1299,11 @@ function generateKOTHtml(table, items, comment, waiterName) {
 function openQrOrdersModal() {
     fetch('/api/orders/held').then(res => res.json()).then(orders => {
         let html = '';
-        let qrOrders = orders.filter(o => o.waiter_name === 'QR Customer');
+        // Flexible filter: checks if waiter_name contains 'QR' or is related to customer QR orders (case-insensitive)
+        let qrOrders = orders.filter(o => {
+            let waiter = (o.waiter_name || '').toUpperCase();
+            return waiter.includes('QR') || waiter.includes('CUSTOMER');
+        });
         
         if(qrOrders.length === 0) {
             html = '<div class="text-center py-8 text-slate-400 font-semibold text-xs">No pending customer QR orders right now.</div>';
@@ -1341,6 +1345,7 @@ function closeQrOrdersModal() {
         modal.classList.add('hidden');
     }
 }
+
 
 function processCheckout() {
     if(cart.length === 0) return alert('Invoice is empty!');
