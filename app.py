@@ -12,17 +12,25 @@ from bson.objectid import ObjectId
 
 app = Flask(__name__)
 
-# Render proxy headers handle karanna meka aniwa ooni (Session loss wenna nodi thiyaganna)
+# Render / Railway proxy headers handle karanna (Session loss wenna nodi thiyaganna)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'syntaxcore_pos_2026_secret')
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Render environment variable eken MONGO_URI eka gannawa (Nathnam local fallback ekak thiyenawa)
-MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017/")
+# ==========================================
+# Meka thamai fix kale: 
+# Cloud eke nam MONGO_URI env variable eka gannawa.
+# Nathnam witharak local fallback eka pawichchi karanawa.
+# ==========================================
+MONGO_URI = os.environ.get("MONGO_URI")
 
-# MongoDB Client eka certifi saha connection ekka connect karanawa
-client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
+if MONGO_URI:
+    # Railway wage cloud environments walata (SSL/TLS certifi ekka)
+    client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
+else:
+    # Oya local computer eke wada karaddi witharak wada karanna
+    client = MongoClient("mongodb://localhost:27017/")
 
 # Database name eka set karanawa
 db = client['triple_eight_pos_db']  
@@ -37,6 +45,7 @@ users_collection = db['users']  # User accounts save karanna
 
 UPLOAD_FOLDER = 'static/uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 
 def init_db():
     print("MongoDB collections ready!")
@@ -1415,11 +1424,11 @@ function generateReceiptHtml(table, items, sub, sc, disc, tot, method) {
         <div style="text-align:center; font-size:10px; font-weight:bold; margin-top:4px;">THANK YOU! COME AGAIN</div>
     `;
 
-    // Print using isolated iframe to avoid multi-page dashboard layout bugs
+    // Print using isolated iframe (Speed optimized to 50ms)
     printViaIframe(receiptHtmlString);
 }
 
-// Shared iframe print helper function (danna nathnam mekakuth daaganna)
+// Shared iframe print helper function
 function printViaIframe(htmlContent) {
     let iframe = document.getElementById('thermal-print-iframe');
     if (!iframe) {
@@ -1465,11 +1474,13 @@ function printViaIframe(htmlContent) {
     `);
     doc.close();
     
+    // Instant trigger with minimal 50ms delay
     setTimeout(() => {
         iframe.contentWindow.focus();
         iframe.contentWindow.print();
-    }, 300);
+    }, 50);
 }
+
 
 
 
@@ -3287,4 +3298,8 @@ def complete_order(order_id):
 
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, port=5000)
+    # Railway wage cloud platforms wala dynamic PORT ekak gannawa (Nathnam local wala 5000 gannawa)
+    port = int(os.environ.get('PORT', 5000))
+    
+    # SocketIO run karaddi app.run wenuwata mehema danna ooni:
+    socketio.run(app, host='0.0.0.0', port=port, debug=False)
