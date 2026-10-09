@@ -1191,15 +1191,33 @@ function printKOTDirect() {
     let table = document.getElementById('pos-table').value;
     let comment = document.getElementById('pos-comment').value;
     
+    // 1. Current state variables save karagannawa
+    let currentCart = [...cart];
+    let runningOrderId = activeRunningOrderId;
+    let waiter = selectedWaiter;
+    let tbl = table;
+    let comm = comment;
+
+    // 2. UI update & Instant KOT Print (Server response ekaka balan inne natha)
+    isKotPrintedStatus = true;
+    updateKotIndicatorUI();
+    
+    let kotHtml = generateKOTHtmlString(tbl, currentCart, comm, waiter);
+    printViaIframe(kotHtml);
+    
+    fetchActiveTablesCount();
+    checkTableSelection();
+
+    // 3. Background eke server ekata hold order eka save wenawa
     fetch('/api/order/hold', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
-            order_id: activeRunningOrderId,
-            table_number: table,
-            waiter_name: selectedWaiter,
-            items: cart,
-            comment: comment,
+            order_id: runningOrderId,
+            table_number: tbl,
+            waiter_name: waiter,
+            items: currentCart,
+            comment: comm,
             subtotal: window.calculatedSubtotal,
             service_charge: window.calculatedServiceCharge,
             discount: window.calculatedDiscount,
@@ -1207,18 +1225,12 @@ function printKOTDirect() {
             is_kot_printed: true
         })
     }).then(res => res.json()).then(data => {
-        if(data.order_id) {
+        if(data.order_id && !activeRunningOrderId) {
             activeRunningOrderId = data.order_id;
         }
-        isKotPrintedStatus = true;
-        updateKotIndicatorUI();
-        
-        // Generate KOT HTML string and print via isolated iframe to avoid multi-page print issues
-        let kotHtml = generateKOTHtmlString(table, cart, comment, selectedWaiter);
-        printViaIframe(kotHtml);
-        
-        fetchActiveTablesCount();
-        checkTableSelection();
+        console.log('KOT Order successfully saved to background:', data);
+    }).catch(err => {
+        console.error('Background KOT save error:', err);
     });
 }
 
@@ -1267,7 +1279,8 @@ function generateKOTHtml(table, items, comment, waiterName) {
         }
     });
 
-    // Corrected ID to match HTML (#printable-asset-area)
+
+
     let area = document.getElementById('printable-asset-area');
     if(area) {
         area.innerHTML = `
