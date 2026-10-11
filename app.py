@@ -830,9 +830,17 @@ const socket = io();
 socket.on('refresh_orders', function(data) {
     fetchActiveTablesCount();
     checkTableSelection();
+    
+    // Active Tables Modal eka refresh karanna
     let modal = document.getElementById('active-tables-modal');
     if(modal && modal.classList.contains('flex')) {
         openActiveTablesModal();
+    }
+
+    // QR Orders Modal eka open wela thiyenawa nam ekath refresh karanna
+    let qrModal = document.getElementById('qr-orders-modal');
+    if(qrModal && qrModal.classList.contains('flex')) {
+        openQrOrdersModal(); // Incoming QR orders auto load karanna
     }
 });
 
@@ -2625,7 +2633,6 @@ def login():
             session['role'] = user['role']
             flash('Login successful!', 'success')
             
-            # Role eka anuwa redirect karanawa
             if user['role'] == 'Admin':
                 return redirect(url_for('dashboard_view'))
             else:
@@ -2642,13 +2649,12 @@ def logout():
     return redirect(url_for('login'))
 
 
-# --- Root Route (App eka open karapu gaman login page ekata yanna) ---
+# --- Root Route ---
 @app.route('/')
 def index():
     if 'username' not in session:
         return redirect(url_for('login'))
     
-    # Login wela nam role eka balala hari thanata yawanna
     user_role = session.get('role', '')
     if user_role.lower() == 'admin':
         return redirect(url_for('dashboard_view'))
@@ -2665,9 +2671,15 @@ def users_management():
         password = request.form.get('password')
         role = request.form.get('role', 'Cashier')
         
-        # Check if user already exists
-        if users_collection.find_one({'username': username}):
-            flash('Username already exists!', 'error')
+        # Super Admin password update support (username eka already thiyenam update karanawa)
+        existing_user = users_collection.find_one({'username': username})
+        if existing_user:
+            hashed_password = generate_password_hash(password)
+            users_collection.update_one(
+                {'username': username},
+                {'$set': {'password': hashed_password, 'role': role}}
+            )
+            flash('User / Super Admin password updated successfully!', 'success')
         else:
             hashed_password = generate_password_hash(password)
             users_collection.insert_one({
@@ -2699,7 +2711,6 @@ def get_service_charge_settings():
     if not setting:
         return {'enabled': False, 'percentage': 10.0, 'label': 'Service Charge'}
     
-    # ObjectId eka JSON serializable nathi nisa eka ain karanawa
     setting.pop('_id', None)
     return setting
 
@@ -2708,20 +2719,15 @@ def get_service_charge_settings():
 @app.route('/dashboard')
 @role_required(['Admin'])
 def dashboard_view():
-    # 1. Login wela nadda balanna
     if 'username' not in session:
         flash('Please login first!', 'error')
         return redirect(url_for('login'))
     
-    # 2. Role eka Admin da kiyala check karanna (Case-insensitive check)
     user_role = session.get('role', '')
-    print(f"DEBUG ROLE: {user_role}")  # Render logs wala balaganna puluwan
-    
     if user_role.lower() != 'admin':
         flash('Access Denied: Admin only area!', 'error')
-        return redirect(url_for('pos_panel'))  # POS ekata yawanna
+        return redirect(url_for('pos_panel'))
     
-    # --- Original logic ---
     orders_list = list(orders_collection.find())
     total_revenue = sum(row.get('total', 0) for row in orders_list)
     total_orders = orders_collection.count_documents({})
@@ -2730,7 +2736,6 @@ def dashboard_view():
     total_tables = len(tables)
     occupied_count = sum(1 for t in tables if t.get('status') == 'Occupied')
 
-    # Pending orders for dashboard
     orders = list(orders_collection.find({'status': 'Pending'}).sort('id', -1))
 
     return render_template_custom(
@@ -3046,40 +3051,34 @@ def api_sales_report():
             for k, v in sales_map.items()
         ]
 
-        return (
-            jsonify({
-                'total_sales': total_sales,
-                'total_orders': total_orders,
-                'total_discount': total_discount,
-                'total_service_charge': total_service_charge,
-                'cash_total': cash_total,
-                'card_total': card_total,
-                'visa_total': visa_total,
-                'online_total': online_total,
-                'ubereats_total': ubereats_total,
-                'pickme_total': pickme_total,
-                'items': items_report,
-            }),
-            200,
-        )
+        return jsonify({
+            'total_sales': total_sales,
+            'total_orders': total_orders,
+            'total_discount': total_discount,
+            'total_service_charge': total_service_charge,
+            'cash_total': cash_total,
+            'card_total': card_total,
+            'visa_total': visa_total,
+            'online_total': online_total,
+            'ubereats_total': ubereats_total,
+            'pickme_total': pickme_total,
+            'items': items_report,
+        }), 200
     except Exception as e:
         print('Error generating sales report:', e)
-        return (
-            jsonify({
-                'total_sales': 0,
-                'total_orders': 0,
-                'total_discount': 0,
-                'total_service_charge': 0,
-                'cash_total': 0,
-                'card_total': 0,
-                'visa_total': 0,
-                'online_total': 0,
-                'ubereats_total': 0,
-                'pickme_total': 0,
-                'items': [],
-            }),
-            200,
-        )
+        return jsonify({
+            'total_sales': 0,
+            'total_orders': 0,
+            'total_discount': 0,
+            'total_service_charge': 0,
+            'cash_total': 0,
+            'card_total': 0,
+            'visa_total': 0,
+            'online_total': 0,
+            'ubereats_total': 0,
+            'pickme_total': 0,
+            'items': [],
+        }), 200
 
 
 # --- Order Processing APIs ---
@@ -3187,6 +3186,87 @@ def hold_order():
     return jsonify({'status': 'success'})
 
 
+# --- KOT Print API (Fixed to print ONLY newly added items) ---
+@app.route('/api/order/kot', methods=['POST'])
+def api_print_kot():
+    data = request.json
+    table_number = data.get('table_number')
+    waiter_name = data.get('waiter_name', 'Waiter')
+    items = data.get('items', [])
+    comment = data.get('comment', '')
+    subtotal = data.get('subtotal', 0)
+    discount = data.get('discount', 0)
+    service_charge = data.get('service_charge', 0)
+    total = data.get('total', 0)
+
+    # Check if a held/running order already exists for this table
+    existing_order = held_orders_collection.find_one({'table_number': table_number})
+    
+    new_items_to_print = []
+    if existing_order:
+        try:
+            old_items_raw = existing_order.get('items', [])
+            old_items = json.loads(old_items_raw) if isinstance(old_items_raw, str) else old_items_raw
+            old_skus = {item.get('sku') for item in old_items}
+        except:
+            old_skus = set()
+
+        # Filter only items that are not already in the held order
+        for item in items:
+            if item.get('sku') not in old_skus:
+                new_items_to_print.append(item)
+    else:
+        new_items_to_print = items
+
+    # Automatically save/update the order in held_orders (Auto-Hold on KOT click)
+    items_json = json.dumps(items)
+    if existing_order:
+        held_orders_collection.update_one(
+            {'table_number': table_number},
+            {'$set': {
+                'items': items_json,
+                'comment': comment,
+                'subtotal': subtotal,
+                'discount': discount,
+                'service_charge': service_charge,
+                'total': total
+            }}
+        )
+    else:
+        new_id = get_next_id('held_orders')
+        held_orders_collection.insert_one({
+            'id': new_id,
+            'table_number': table_number,
+            'waiter_name': waiter_name,
+            'items': items_json,
+            'comment': comment,
+            'subtotal': subtotal,
+            'discount': discount,
+            'service_charge': service_charge,
+            'total': total
+        })
+
+    tables_collection.update_many(
+        {'table_number': table_number},
+        {'$set': {'status': 'Occupied'}}
+    )
+
+    # Emit KOT socket event ONLY with newly added items if there are any
+    if new_items_to_print:
+        socketio.emit(
+            'new_kot',
+            {
+                'table_number': table_number,
+                'waiter_name': waiter_name,
+                'items': json.dumps(new_items_to_print),
+                'comment': comment,
+            }
+        )
+
+    socketio.emit('refresh_orders', {'status': 'updated'})
+    return jsonify({'status': 'success', 'message': 'KOT sent and order held successfully!'})
+
+
 @app.route('/api/orders/held', methods=['GET'])
 def get_held_orders():
     orders = list(held_orders_collection.find())
@@ -3248,7 +3328,8 @@ def get_completed_orders():
     
 @app.route('/api/order/<order_id>', methods=['DELETE'])
 def delete_running_order(order_id):
-    # Fixed session role check (Capital 'Admin' and correct key 'role')
+    
+    
     if session.get('role') != 'Admin':
         return jsonify({'success': False, 'message': 'Access Denied! Only Admin can delete active orders.'}), 403
     
@@ -3322,7 +3403,8 @@ def get_menu_items():
 
 @app.route('/admin/running-orders')
 def admin_running_orders():
-    # Fixed role check to match session['role'] == 'Admin'
+    
+    
     if session.get('role') != 'Admin':
         return "Access Denied! Admins only.", 403
     return render_template_custom(ADMIN_ORDERS_HTML, title='Active Orders (Admin)')
@@ -3349,8 +3431,10 @@ def complete_order(order_id):
 
 
 if __name__ == '__main__':
-    # Railway wage cloud platforms wala dynamic PORT ekak gannawa (Nathnam local wala 5000 gannawa)
+    
+    
     port = int(os.environ.get('PORT', 5000))
     
-    # SocketIO run karaddi app.run wenuwata mehema danna ooni:
+    
+    
     socketio.run(app, host='0.0.0.0', port=port, debug=False)
