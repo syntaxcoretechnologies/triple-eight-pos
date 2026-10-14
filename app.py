@@ -1,11 +1,11 @@
 import json
 import os
-import certifi  # Meka aluthin danna
+import certifi  # Cloud hosting වලට අවශ්‍ය නම් තියාගන්න පුළුවන්
 from flask import Flask, jsonify, redirect, render_template_string, render_template, request, url_for, session, flash, abort
 from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.middleware.proxy_fix import ProxyFix  # <--- MEKA ALUTHIN DAMMA (Render HTTPS session fix karanna)
+from werkzeug.middleware.proxy_fix import ProxyFix  # Render HTTPS session fix karanna
 from pymongo import MongoClient
 from functools import wraps
 from bson.objectid import ObjectId
@@ -19,18 +19,20 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'syntaxcore_pos_2026_sec
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # ==========================================
-# Meka thamai fix kale: 
-# Cloud eke nam MONGO_URI env variable eka gannawa.
-# Nathnam witharak local fallback eka pawichchi karanawa.
+# SPEED FIX: Localhost Connection & Pooling
 # ==========================================
 MONGO_URI = os.environ.get("MONGO_URI")
 
 if MONGO_URI:
-    # Railway wage cloud environments walata (SSL/TLS certifi ekka)
+    # Render / Railway වගේ Cloud environments වලට
     client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
 else:
-    # Oya local computer eke wada karaddi witharak wada karanna
-    client = MongoClient("mongodb://localhost:27017/")
+    # Local computer එකෙන් run කරද්දී Internet අවශ්‍ය නැති Local MongoDB එකට (පිස්සු වේගයකින් වැඩ කරයි!)
+    client = MongoClient(
+        "mongodb://localhost:27017/",
+        serverSelectionTimeoutMS=2000,
+        maxPoolSize=50
+    )
 
 # Database name eka set karanawa
 db = client['triple_eight_pos_db']  
@@ -49,6 +51,13 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def init_db():
     print("MongoDB collections ready!")
+    
+    # --- SPEED OPTIMIZATION: Indexes දමා ගැනීම ---
+    try:
+        db.held_orders.create_index("table_number", background=True)
+        db.orders.create_index("order_id", background=True)
+    except Exception as e:
+        print("Index notice:", e)
     
     # System eke user kenek wath nathnam, default Admin account ekak auto create karayi
     if users_collection.count_documents({}) == 0:
@@ -1187,60 +1196,84 @@ function updateKotIndicatorUI() {
 }
 
 function printKOTDirect() {
-    if(cart.length === 0) return alert('Invoice is empty!');
-    
-    let selectedWaiter = document.getElementById('pos-waiter')?.value;
-    if (!selectedWaiter) {
-        alert('Please select a waiter first!');
-        document.getElementById('pos-waiter')?.focus();
-        return;
-    }
-
-    let table = document.getElementById('pos-table').value;
-    let comment = document.getElementById('pos-comment').value;
-    
-    // 1. Current state variables save karagannawa
-    let currentCart = [...cart];
-    let runningOrderId = activeRunningOrderId;
-    let waiter = selectedWaiter;
-    let tbl = table;
-    let comm = comment;
-
-    // 2. UI update & Instant KOT Print (Server response ekaka balan inne natha)
-    isKotPrintedStatus = true;
-    updateKotIndicatorUI();
-    
-    let kotHtml = generateKOTHtmlString(tbl, currentCart, comm, waiter);
-    printViaIframe(kotHtml);
-    
-    fetchActiveTablesCount();
-    checkTableSelection();
-
-    // 3. Background eke server ekata hold order eka save wenawa
-    fetch('/api/order/hold', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            order_id: runningOrderId,
-            table_number: tbl,
-            waiter_name: waiter,
-            items: currentCart,
-            comment: comm,
-            subtotal: window.calculatedSubtotal,
-            service_charge: window.calculatedServiceCharge,
-            discount: window.calculatedDiscount,
-            total: window.calculatedTotal,
-            is_kot_printed: true
-        })
-    }).then(res => res.json()).then(data => {
-        if(data.order_id && !activeRunningOrderId) {
-            activeRunningOrderId = data.order_id;
+    try {
+        // 1. Cart එක තියෙන Variable එක හරියටම අල්ලගැනීම (cart හෝ window.cart)
+        let currentCartItems = (typeof cart !== 'undefined' && Array.isArray(cart)) ? cart : (window.cart || []);
+        
+        if (!currentCartItems || currentCartItems.length === 0) {
+            return alert('Invoice is empty!');
         }
-        console.log('KOT Order successfully saved to background:', data);
-    }).catch(err => {
-        console.error('Background KOT save error:', err);
-    });
+        
+        let selectedWaiter = document.getElementById('pos-waiter')?.value;
+        if (!selectedWaiter) {
+            alert('Please select a waiter first!');
+            document.getElementById('pos-waiter')?.focus();
+            return;
+        }
+
+        let table = document.getElementById('pos-table')?.value || '1';
+        let comment = document.getElementById('pos-comment')?.value || '';
+        
+        let currentCart = [...currentCartItems];
+        let runningOrderId = typeof activeRunningOrderId !== 'undefined' ? activeRunningOrderId : null;
+        let waiter = selectedWaiter;
+        let tbl = table;
+        let comm = comment;
+
+        // 2. Backend එකට Request එක යැවීම
+        fetch('/api/order/kot', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                order_id: runningOrderId,
+                table_number: tbl,
+                waiter_name: waiter,
+                items: currentCart,
+                comment: comm,
+                subtotal: window.calculatedSubtotal || 0,
+                service_charge: window.calculatedServiceCharge || 0,
+                discount: window.calculatedDiscount || 0,
+                total: window.calculatedTotal || 0
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            console.log('Server Response:', data);
+            if(data && data.status === 'success') {
+                if(typeof isKotPrintedStatus !== 'undefined') isKotPrintedStatus = true;
+                if(typeof updateKotIndicatorUI === 'function') updateKotIndicatorUI();
+                
+                // 3. Backend එකෙන් ෆිල්ටර් වෙලා ආපු අලුත් අයිතම (new_items) විතරක් ගන්නවා
+                let itemsToPrint = data.new_items || [];
+                console.log('Items to print via Iframe:', itemsToPrint);
+
+                if (itemsToPrint.length > 0) {
+                    if(typeof generateKOTHtmlString === 'function' && typeof printViaIframe === 'function') {
+                        let kotHtml = generateKOTHtmlString(tbl, itemsToPrint, comm, waiter);
+                        printViaIframe(kotHtml);
+                    } else {
+                        console.error('Print helper functions (generateKOTHtmlString or printViaIframe) are missing!');
+                    }
+                } else {
+                    console.log('No new items added to print (All items already printed).');
+                }
+                
+                if(typeof fetchActiveTablesCount === 'function') fetchActiveTablesCount();
+                if(typeof checkTableSelection === 'function') checkTableSelection();
+            } else {
+                alert('Error: ' + (data?.message || 'Unknown error'));
+            }
+        })
+        .catch(err => {
+            console.error('KOT Fetch Error:', err);
+            alert('Failed to send KOT. Please check connection.');
+        });
+
+    } catch (e) {
+        console.error('Critical Error in printKOTDirect:', e);
+    }
 }
+
 
 function generateKOTHtmlString(table, items, comment, waiterName) {
     let itemsStr = items.map(i => `
@@ -2671,7 +2704,6 @@ def users_management():
         password = request.form.get('password')
         role = request.form.get('role', 'Cashier')
         
-        # Super Admin password update support (username eka already thiyenam update karanawa)
         existing_user = users_collection.find_one({'username': username})
         if existing_user:
             hashed_password = generate_password_hash(password)
@@ -3186,40 +3218,50 @@ def hold_order():
     return jsonify({'status': 'success'})
 
 
-# --- KOT Print API (Fixed to print ONLY newly added items) ---
+# --- KOT Print API (Strictly print ONLY newly added items) ---
 @app.route('/api/order/kot', methods=['POST'])
 def api_print_kot():
     data = request.json
     table_number = data.get('table_number')
     waiter_name = data.get('waiter_name', 'Waiter')
-    items = data.get('items', [])
+    current_cart_items = data.get('items', [])
     comment = data.get('comment', '')
     subtotal = data.get('subtotal', 0)
     discount = data.get('discount', 0)
     service_charge = data.get('service_charge', 0)
     total = data.get('total', 0)
 
-    # Check if a held/running order already exists for this table
     existing_order = held_orders_collection.find_one({'table_number': table_number})
     
     new_items_to_print = []
+    
     if existing_order:
         try:
             old_items_raw = existing_order.get('items', [])
             old_items = json.loads(old_items_raw) if isinstance(old_items_raw, str) else old_items_raw
-            old_skus = {item.get('sku') for item in old_items}
+            old_item_map = {str(item.get('sku')): int(item.get('qty', item.get('quantity', 1))) for item in old_items}
         except:
-            old_skus = set()
+            old_item_map = {}
 
-        # Filter only items that are not already in the held order
-        for item in items:
-            if item.get('sku') not in old_skus:
+        for item in current_cart_items:
+            sku = str(item.get('sku'))
+            current_qty = int(item.get('qty', item.get('quantity', 1)))
+            
+            if sku not in old_item_map:
                 new_items_to_print.append(item)
+            else:
+                old_qty = old_item_map[sku]
+                if current_qty > old_qty:
+                    diff_item = item.copy()
+                    diff_qty = current_qty - old_qty
+                    diff_item['qty'] = diff_qty
+                    if 'quantity' in diff_item:
+                        diff_item['quantity'] = diff_qty
+                    new_items_to_print.append(diff_item)
     else:
-        new_items_to_print = items
+        new_items_to_print = current_cart_items
 
-    # Automatically save/update the order in held_orders (Auto-Hold on KOT click)
-    items_json = json.dumps(items)
+    items_json = json.dumps(current_cart_items)
     if existing_order:
         held_orders_collection.update_one(
             {'table_number': table_number},
@@ -3251,7 +3293,6 @@ def api_print_kot():
         {'$set': {'status': 'Occupied'}}
     )
 
-    # Emit KOT socket event ONLY with newly added items if there are any
     if new_items_to_print:
         socketio.emit(
             'new_kot',
@@ -3264,8 +3305,12 @@ def api_print_kot():
         )
 
     socketio.emit('refresh_orders', {'status': 'updated'})
-    return jsonify({'status': 'success', 'message': 'KOT sent and order held successfully!'})
-
+    
+    return jsonify({
+        'status': 'success', 
+        'message': 'KOT sent and order held successfully!',
+        'new_items': new_items_to_print
+    })
 
 @app.route('/api/orders/held', methods=['GET'])
 def get_held_orders():
@@ -3328,8 +3373,6 @@ def get_completed_orders():
     
 @app.route('/api/order/<order_id>', methods=['DELETE'])
 def delete_running_order(order_id):
-    
-    
     if session.get('role') != 'Admin':
         return jsonify({'success': False, 'message': 'Access Denied! Only Admin can delete active orders.'}), 403
     
@@ -3403,8 +3446,6 @@ def get_menu_items():
 
 @app.route('/admin/running-orders')
 def admin_running_orders():
-    
-    
     if session.get('role') != 'Admin':
         return "Access Denied! Admins only.", 403
     return render_template_custom(ADMIN_ORDERS_HTML, title='Active Orders (Admin)')
@@ -3431,6 +3472,7 @@ def complete_order(order_id):
 
 
 if __name__ == '__main__':
+    
     
     
     port = int(os.environ.get('PORT', 5000))
