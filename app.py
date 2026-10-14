@@ -1,11 +1,11 @@
 import json
 import os
-import certifi  # Cloud hosting වලට අවශ්‍ය නම් තියාගන්න පුළුවන්
+import certifi  # Cloud hosting වලට අවශ්‍යයි
 from flask import Flask, jsonify, redirect, render_template_string, render_template, request, url_for, session, flash, abort
 from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.middleware.proxy_fix import ProxyFix  # Render HTTPS session fix karanna
+from werkzeug.middleware.proxy_fix import ProxyFix  # Railway HTTPS session fix karanna
 from pymongo import MongoClient
 from functools import wraps
 from bson.objectid import ObjectId
@@ -19,18 +19,16 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'syntaxcore_pos_2026_sec
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # ==========================================
-# SPEED FIX: Localhost Connection & Pooling
-# ==========================================
-MONGO_URI = os.environ.get("MONGO_URI")
+# Smart Connection: Railway (MONGO_URI) or Atlas Fallback
+MONGO_URI = os.environ.get("MONGO_URI") or os.environ.get("MONGO_URL")
 
 if MONGO_URI:
-    # Render / Railway වගේ Cloud environments වලට
     client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
 else:
-    # Local computer එකෙන් run කරද්දී Internet අවශ්‍ය නැති Local MongoDB එකට (පිස්සු වේගයකින් වැඩ කරයි!)
     client = MongoClient(
-        "mongodb://localhost:27017/",
-        serverSelectionTimeoutMS=2000,
+        "mongodb+srv://roobyclothing_db_user:GRjagSOpwUy6Hg3x@cluster0.mcklumh.mongodb.net/?appName=Cluster0",
+        tlsCAFile=certifi.where(),
+        serverSelectionTimeoutMS=5000,
         maxPoolSize=50
     )
 
@@ -100,7 +98,6 @@ def render_template_custom(template_str, **kwargs):
         return render_template(template_str, **kwargs)
 
 init_db()
-
 
 
 # --- HTML TEMPLATES ---
