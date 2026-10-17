@@ -19,17 +19,24 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'syntaxcore_pos_2026_sec
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # ==========================================
-# Smart Connection: Railway (MONGO_URI) or Atlas Fallback
+# Smart Connection & Speed Optimization (Railway / Atlas)
 MONGO_URI = os.environ.get("MONGO_URI") or os.environ.get("MONGO_URL")
 
 if MONGO_URI:
-    client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
+    client = MongoClient(
+        MONGO_URI, 
+        tlsCAFile=certifi.where(),
+        serverSelectionTimeoutMS=5000,
+        maxPoolSize=50,
+        socketTimeoutMS=20000
+    )
 else:
     client = MongoClient(
         "mongodb+srv://roobyclothing_db_user:GRjagSOpwUy6Hg3x@cluster0.mcklumh.mongodb.net/?appName=Cluster0",
         tlsCAFile=certifi.where(),
         serverSelectionTimeoutMS=5000,
-        maxPoolSize=50
+        maxPoolSize=50,
+        socketTimeoutMS=20000
     )
 
 # Database name eka set karanawa
@@ -54,18 +61,22 @@ def init_db():
     try:
         db.held_orders.create_index("table_number", background=True)
         db.orders.create_index("order_id", background=True)
+        db.inventory.create_index("item_name", background=True)
     except Exception as e:
         print("Index notice:", e)
     
     # System eke user kenek wath nathnam, default Admin account ekak auto create karayi
-    if users_collection.count_documents({}) == 0:
-        hashed_password = generate_password_hash('admin123')
-        users_collection.insert_one({
-            'username': 'admin',
-            'password': hashed_password,
-            'role': 'Admin'
-        })
-        print("Default admin user created successfully! (Username: admin | Password: admin123)")
+    try:
+        if users_collection.count_documents({}) == 0:
+            hashed_password = generate_password_hash('admin123')
+            users_collection.insert_one({
+                'username': 'admin',
+                'password': hashed_password,
+                'role': 'Admin'
+            })
+            print("Default admin user created successfully! (Username: admin | Password: admin123)")
+    except Exception as e:
+        print("User init notice:", e)
 
 def get_next_id(counter_name='order_id'):
     counter = db.counters.find_one_and_update(
@@ -98,6 +109,7 @@ def render_template_custom(template_str, **kwargs):
         return render_template(template_str, **kwargs)
 
 init_db()
+
 
 
 # --- HTML TEMPLATES ---
@@ -2708,7 +2720,7 @@ def users_management():
                 {'username': username},
                 {'$set': {'password': hashed_password, 'role': role}}
             )
-            flash('User / Super Admin password updated successfully!', 'success')
+            flash('User updated successfully!', 'success')
         else:
             hashed_password = generate_password_hash(password)
             users_collection.insert_one({
@@ -2757,7 +2769,8 @@ def dashboard_view():
         flash('Access Denied: Admin only area!', 'error')
         return redirect(url_for('pos_panel'))
     
-    orders_list = list(orders_collection.find())
+    # SPEED OPTIMIZATION: lean queries & projection where applicable
+    orders_list = list(orders_collection.find({}, {'total': 1}))
     total_revenue = sum(row.get('total', 0) for row in orders_list)
     total_orders = orders_collection.count_documents({})
     total_inventory = inventory_collection.count_documents({})
@@ -2765,7 +2778,7 @@ def dashboard_view():
     total_tables = len(tables)
     occupied_count = sum(1 for t in tables if t.get('status') == 'Occupied')
 
-    orders = list(orders_collection.find({'status': 'Pending'}).sort('id', -1))
+    orders = list(orders_collection.find({'status': 'Pending'}).sort('id', -1).limit(50))
 
     return render_template_custom(
         DASHBOARD_HTML,
@@ -3148,7 +3161,10 @@ def api_create_order():
     )
 
     if order_id:
-        held_orders_collection.delete_one({'id': int(order_id)})
+        try:
+            held_orders_collection.delete_one({'id': int(order_id)})
+        except:
+            held_orders_collection.delete_one({'id': order_id})
 
     socketio.emit(
         'new_kot',
@@ -3179,19 +3195,34 @@ def hold_order():
     items_json = json.dumps(items)
 
     if order_id:
-        held_orders_collection.update_one(
-            {'id': int(order_id)},
-            {'$set': {
-                'table_number': table_number,
-                'waiter_name': waiter_name,
-                'items': items_json,
-                'comment': comment,
-                'subtotal': subtotal,
-                'discount': discount,
-                'service_charge': service_charge,
-                'total': total
-            }}
-        )
+        try:
+            held_orders_collection.update_one(
+                {'id': int(order_id)},
+                {'$set': {
+                    'table_number': table_number,
+                    'waiter_name': waiter_name,
+                    'items': items_json,
+                    'comment': comment,
+                    'subtotal': subtotal,
+                    'discount': discount,
+                    'service_charge': service_charge,
+                    'total': total
+                }}
+            )
+        except:
+            held_orders_collection.update_one(
+                {'id': order_id},
+                {'$set': {
+                    'table_number': table_number,
+                    'waiter_name': waiter_name,
+                    'items': items_json,
+                    'comment': comment,
+                    'subtotal': subtotal,
+                    'discount': discount,
+                    'service_charge': service_charge,
+                    'total': total
+                }}
+            )
     else:
         new_id = get_next_id('held_orders')
         held_orders_collection.insert_one({
@@ -3298,7 +3329,7 @@ def api_print_kot():
                 'waiter_name': waiter_name,
                 'items': json.dumps(new_items_to_print),
                 'comment': comment,
-            }
+            },
         )
 
     socketio.emit('refresh_orders', {'status': 'updated'})
@@ -3321,9 +3352,9 @@ def get_held_orders():
             parsed_items = items_data
 
         result.append({
-            'id': o['id'],
-            'table_number': o['table_number'],
-            'waiter_name': o['waiter_name'],
+            'id': o.get('id'),
+            'table_number': o.get('table_number'),
+            'waiter_name': o.get('waiter_name'),
             'items': parsed_items,
             'comment': o.get('comment', ''),
             'subtotal': o.get('subtotal', 0),
@@ -3337,7 +3368,7 @@ def get_held_orders():
 @app.route('/api/orders/completed', methods=['GET'])
 def get_completed_orders():
     try:
-        completed_orders = list(orders_collection.find({'status': 'Completed'}).sort('id', -1))
+        completed_orders = list(orders_collection.find({'status': 'Completed'}).sort('id', -1).limit(100))
 
         results = []
         for o in completed_orders:
@@ -3350,16 +3381,14 @@ def get_completed_orders():
                 pass
 
             results.append({
-                'id': o['id'],
+                'id': o.get('id'),
                 'table_number': o.get('table_number'),
                 'items': items_data,
                 'subtotal': o.get('subtotal', 0),
                 'discount': o.get('discount', 0),
                 'service_charge': o.get('service_charge', 0),
                 'total': o.get('total', 0),
-                'payment_method': (
-                    o['payment_method'] if 'payment_method' in o else 'Cash'
-                ),
+                'payment_method': o.get('payment_method', 'Cash'),
                 'created_at': 'Today',
             })
         return jsonify(results), 200
@@ -3374,7 +3403,11 @@ def delete_running_order(order_id):
         return jsonify({'success': False, 'message': 'Access Denied! Only Admin can delete active orders.'}), 403
     
     try:
-        held_orders_collection.delete_one({'id': int(order_id)})
+        try:
+            held_orders_collection.delete_one({'id': int(order_id)})
+        except:
+            held_orders_collection.delete_one({'id': order_id})
+            
         socketio.emit('refresh_orders', {'status': 'updated'})
         return jsonify({'success': True, 'message': 'Order deleted successfully'})
     except Exception as e:
@@ -3429,14 +3462,10 @@ def get_menu_items():
         )
 
         result.append({
-            'id': item['id'],
-            'name': item['name'],
-            'price': item['price'],
-            'category': (
-                item['category']
-                if 'category' in item and item['category']
-                else 'General'
-            ),
+            'id': item.get('id'),
+            'name': item.get('name'),
+            'price': item.get('price'),
+            'category': item.get('category', 'General'),
             'image': img,
         })
     return jsonify(result)
@@ -3469,11 +3498,5 @@ def complete_order(order_id):
 
 
 if __name__ == '__main__':
-    
-    
-    
     port = int(os.environ.get('PORT', 5000))
-    
-    
-    
     socketio.run(app, host='0.0.0.0', port=port, debug=False)
