@@ -3369,28 +3369,38 @@ def api_print_kot():
 
 @app.route('/api/orders/held', methods=['GET'])
 def get_held_orders():
-    orders = list(held_orders_collection.find())
-    result = []
-    for o in orders:
-        items_data = o.get('items', [])
-        try:
-            parsed_items = json.loads(items_data) if isinstance(items_data, str) else items_data
-        except:
-            parsed_items = items_data
+    try:
+        # Fast query with max_time_ms to prevent hanging
+        orders = list(held_orders_collection.find().max_time_ms(8000))
+        result = []
+        for o in orders:
+            items_data = o.get('items', [])
+            if isinstance(items_data, str):
+                try:
+                    parsed_items = json.loads(items_data)
+                except:
+                    parsed_items = []
+            else:
+                parsed_items = items_data
 
-        result.append({
-            'id': o.get('id'),
-            'table_number': o.get('table_number'),
-            'waiter_name': o.get('waiter_name'),
-            'items': parsed_items,
-            'comment': o.get('comment', ''),
-            'subtotal': o.get('subtotal', 0),
-            'discount': o.get('discount', 0),
-            'service_charge': o.get('service_charge', 0),
-            'total': o.get('total', 0),
-        })
-    return jsonify(result)
-
+            result.append({
+                'id': o.get('id'),
+                'table_number': o.get('table_number'),
+                'waiter_name': o.get('waiter_name', 'Waiter'),
+                'items': parsed_items,
+                'comment': o.get('comment', ''),
+                'subtotal': o.get('subtotal', 0),
+                'discount': o.get('discount', 0),
+                'service_charge': o.get('service_charge', 0),
+                'total': o.get('total', 0),
+                'is_kot_printed': o.get('is_kot_printed', False)
+            })
+        return jsonify(result), 200
+    except Exception as e:
+        print("Held orders query error:", e)
+        return jsonify([]), 200
+    
+    
 
 @app.route('/api/orders/completed', methods=['GET'])
 def get_completed_orders():
