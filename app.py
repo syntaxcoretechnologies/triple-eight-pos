@@ -1,6 +1,9 @@
+import gevent.monkey
+gevent.monkey.patch_all()
+
 import json
 import os
-import certifi  # Cloud hosting වලට අවශ්‍යයි
+import certifi  # Cloud hosting walata awashyayi
 from flask import Flask, jsonify, redirect, render_template_string, render_template, request, url_for, session, flash, abort
 from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
@@ -16,7 +19,7 @@ app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'syntaxcore_pos_2026_secret')
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
 
 # ==========================================
 # Smart Connection & Speed Optimization (Railway / Atlas)
@@ -59,7 +62,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 def init_db():
     print("MongoDB collections ready!")
     
-    # --- SPEED OPTIMIZATION: Indexes දමා ගැනීම ---
+    # --- SPEED OPTIMIZATION: Indexes dama ගැනීම ---
     try:
         db.held_orders.create_index("table_number", background=True)
         db.orders.create_index("order_id", background=True)
@@ -111,6 +114,7 @@ def render_template_custom(template_str, **kwargs):
         return render_template(template_str, **kwargs)
 
 init_db()
+
 
 
 
