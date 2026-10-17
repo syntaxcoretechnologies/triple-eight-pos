@@ -26,17 +26,19 @@ if MONGO_URI:
     client = MongoClient(
         MONGO_URI, 
         tlsCAFile=certifi.where(),
-        serverSelectionTimeoutMS=5000,
-        maxPoolSize=50,
-        socketTimeoutMS=20000
+        serverSelectionTimeoutMS=3000,
+        connectTimeoutMS=3000,
+        socketTimeoutMS=5000,
+        maxPoolSize=50
     )
 else:
     client = MongoClient(
-        "mongodb+srv://roobyclothing_db_user:GRjagSOpwUy6Hg3x@cluster0.mcklumh.mongodb.net/?appName=Cluster0",
+        "mongodb+srv://roobyclothing_db_user:GRjagSOpwUy6Hg3x@cluster0.mcklumh.mongodb.net/triple_eight_pos_db?retryWrites=true&w=majority&appName=Cluster0",
         tlsCAFile=certifi.where(),
-        serverSelectionTimeoutMS=5000,
-        maxPoolSize=50,
-        socketTimeoutMS=20000
+        serverSelectionTimeoutMS=3000,
+        connectTimeoutMS=3000,
+        socketTimeoutMS=5000,
+        maxPoolSize=50
     )
 
 # Database name eka set karanawa
