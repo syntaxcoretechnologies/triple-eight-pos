@@ -2762,7 +2762,7 @@ def users_management():
             flash('User created successfully!', 'success')
         return redirect(url_for('users_management'))
     
-    users = list(users_collection.find())
+    users = list(users_collection.find().max_time_ms(5000))
     return render_template_custom(USERS_HTML, title='User Management', users=users)
 
 
@@ -2801,15 +2801,15 @@ def dashboard_view():
         return redirect(url_for('pos_panel'))
     
     # SPEED OPTIMIZATION: lean queries & projection where applicable
-    orders_list = list(orders_collection.find({}, {'total': 1}))
+    orders_list = list(orders_collection.find({}, {'total': 1}).max_time_ms(5000))
     total_revenue = sum(row.get('total', 0) for row in orders_list)
     total_orders = orders_collection.count_documents({})
     total_inventory = inventory_collection.count_documents({})
-    tables = list(tables_collection.find())
+    tables = list(tables_collection.find().max_time_ms(5000))
     total_tables = len(tables)
     occupied_count = sum(1 for t in tables if t.get('status') == 'Occupied')
 
-    orders = list(orders_collection.find({'status': 'Pending'}).sort('id', -1).limit(50))
+    orders = list(orders_collection.find({'status': 'Pending'}).sort('id', -1).limit(50).max_time_ms(5000))
 
     return render_template_custom(
         DASHBOARD_HTML,
@@ -2827,9 +2827,9 @@ def dashboard_view():
 @app.route('/pos')
 @role_required(['Admin', 'Cashier', 'Waiter'])
 def pos_panel():
-    inventory = list(inventory_collection.find())
-    tables = list(tables_collection.find())
-    waiters = list(waiters_collection.find())
+    inventory = list(inventory_collection.find().max_time_ms(5000))
+    tables = list(tables_collection.find().max_time_ms(5000))
+    waiters = list(waiters_collection.find().max_time_ms(5000))
     service_charge_setting = get_service_charge_settings()
     
     return render_template_custom(
@@ -2850,7 +2850,7 @@ def kitchen_view():
 
 @app.route('/qr/<table_id>')
 def qr_order_page(table_id):
-    inventory = list(inventory_collection.find())
+    inventory = list(inventory_collection.find().max_time_ms(5000))
     service_charge_setting = get_service_charge_settings()
     return render_template_custom(
         QR_HTML, title=f'Table {table_id} QR', inventory=inventory, table_id=table_id, service_charge_setting=service_charge_setting
@@ -2911,7 +2911,7 @@ def tables_management():
             print('Table add error:', e)
         return redirect(url_for('tables_management'))
     
-    tables = list(tables_collection.find())
+    tables = list(tables_collection.find().max_time_ms(5000))
     return render_template_custom(
         TABLES_HTML, title='Table Management', tables=tables
     )
@@ -2949,7 +2949,7 @@ def waiters_management():
         })
         return redirect(url_for('waiters_management'))
     
-    waiters = list(waiters_collection.find())
+    waiters = list(waiters_collection.find().max_time_ms(5000))
     return render_template_custom(
         WAITERS_HTML, title='Waiters', waiters=waiters
     )
@@ -3017,7 +3017,7 @@ def inventory_management():
 
         return redirect(url_for('inventory_management'))
 
-    inventory = list(inventory_collection.find())
+    inventory = list(inventory_collection.find().max_time_ms(5000))
     return render_template_custom(
         INVENTORY_HTML, title='Inventory', inventory=inventory
     )
@@ -3034,7 +3034,7 @@ def delete_inventory(id):
 @app.route('/reports')
 @role_required(['Admin'])
 def sales_report():
-    orders = list(orders_collection.find({'status': 'Completed'}))
+    orders = list(orders_collection.find({'status': 'Completed'}).max_time_ms(8000))
     sales_map = {}
     for o in orders:
         try:
@@ -3062,7 +3062,7 @@ def sales_report():
 @app.route('/api/reports/sales', methods=['GET'])
 def api_sales_report():
     try:
-        orders = list(orders_collection.find({'status': 'Completed'}))
+        orders = list(orders_collection.find({'status': 'Completed'}).max_time_ms(8000))
 
         total_sales = 0
         total_orders = len(orders)
@@ -3237,7 +3237,8 @@ def hold_order():
                     'subtotal': subtotal,
                     'discount': discount,
                     'service_charge': service_charge,
-                    'total': total
+                    'total': total,
+                    'is_kot_printed': True
                 }}
             )
         except:
@@ -3251,7 +3252,8 @@ def hold_order():
                     'subtotal': subtotal,
                     'discount': discount,
                     'service_charge': service_charge,
-                    'total': total
+                    'total': total,
+                    'is_kot_printed': True
                 }}
             )
     else:
@@ -3265,7 +3267,8 @@ def hold_order():
             'subtotal': subtotal,
             'discount': discount,
             'service_charge': service_charge,
-            'total': total
+            'total': total,
+            'is_kot_printed': True
         })
 
     tables_collection.update_many(
@@ -3277,7 +3280,7 @@ def hold_order():
     return jsonify({'status': 'success'})
 
 
-# --- KOT Print API (Strictly print ONLY newly added items) ---
+# --- KOT Print API (Optimized & Fast) ---
 @app.route('/api/order/kot', methods=['POST'])
 def api_print_kot():
     data = request.json
@@ -3330,7 +3333,8 @@ def api_print_kot():
                 'subtotal': subtotal,
                 'discount': discount,
                 'service_charge': service_charge,
-                'total': total
+                'total': total,
+                'is_kot_printed': True
             }}
         )
     else:
@@ -3344,7 +3348,8 @@ def api_print_kot():
             'subtotal': subtotal,
             'discount': discount,
             'service_charge': service_charge,
-            'total': total
+            'total': total,
+            'is_kot_printed': True
         })
 
     tables_collection.update_many(
@@ -3374,7 +3379,6 @@ def api_print_kot():
 @app.route('/api/orders/held', methods=['GET'])
 def get_held_orders():
     try:
-        # Fast query with max_time_ms to prevent hanging
         orders = list(held_orders_collection.find().max_time_ms(8000))
         result = []
         for o in orders:
@@ -3409,7 +3413,7 @@ def get_held_orders():
 @app.route('/api/orders/completed', methods=['GET'])
 def get_completed_orders():
     try:
-        completed_orders = list(orders_collection.find({'status': 'Completed'}).sort('id', -1).limit(100))
+        completed_orders = list(orders_collection.find({'status': 'Completed'}).sort('id', -1).limit(100).max_time_ms(5000))
 
         results = []
         for o in completed_orders:
@@ -3478,7 +3482,8 @@ def api_qr_customer_order():
         'subtotal': subtotal,
         'discount': discount,
         'service_charge': service_charge,
-        'total': total
+        'total': total,
+        'is_kot_printed': False
     })
 
     tables_collection.update_many(
@@ -3492,7 +3497,7 @@ def api_qr_customer_order():
 
 @app.route('/api/menu-items', methods=['GET'])
 def get_menu_items():
-    items = list(inventory_collection.find())
+    items = list(inventory_collection.find().max_time_ms(5000))
 
     result = []
     for item in items:
