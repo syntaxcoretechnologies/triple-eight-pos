@@ -1013,54 +1013,68 @@ function fetchActiveTablesCount() {
 }
 
 function openActiveTablesModal() {
-    fetch('/api/orders/held').then(res => res.json()).then(orders => {
-        let html = '';
-        if(orders.length === 0) {
-            html = '<div class="col-span-2 text-center py-8 text-slate-400 font-semibold text-xs">No active running orders on tables right now.</div>';
-        } else {
-            orders.forEach(o => {
-                let itemsParsed = typeof o.items === 'string' ? JSON.parse(o.items) : o.items;
-                let itemsSummary = itemsParsed.map(i => `${i.name} (x${i.qty || i.quantity})`).join(', ');
-                let kotBadge = o.is_kot_printed ? 
-                    '<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-black"><i class="fa-solid fa-check"></i> KOT Sent</span>' : 
-                    '<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse"><i class="fa-solid fa-triangle-exclamation"></i> KOT NOT Sent!</span>';
+    let modal = document.getElementById('active-tables-modal');
+    if(modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
 
-                let deleteButtonHtml = `
-                    <button onclick="deleteRunningOrder(${o.id}, '${o.table_number}')" class="w-full py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-xs shadow transition active:scale-95 flex items-center justify-center gap-1.5">
-                        <i class="fa-solid fa-trash"></i> Delete Order (Admin)
-                    </button>
-                `;
+    // මුලින්ම Loading පණිවිඩයක් පෙන්වීම (Instant UI Response)
+    let listEl = document.getElementById('active-tables-list');
+    if(listEl) {
+        listEl.innerHTML = '<div class="col-span-2 text-center py-8 text-slate-400 font-semibold text-xs animate-pulse">Loading active tables...</div>';
+    }
 
-                // Safe waiter name escape
-                let waiterNameVal = o.waiter_name || '';
+    // ඊටපස්සේ Background එකෙන් ඩේටා ෆෙච් කරගැනීම
+    fetch('/api/orders/held', { cache: 'no-store' })
+        .then(res => res.json())
+        .then(orders => {
+            let html = '';
+            if(!orders || orders.length === 0) {
+                html = '<div class="col-span-2 text-center py-8 text-slate-400 font-semibold text-xs">No active running orders on tables right now.</div>';
+            } else {
+                orders.forEach(o => {
+                    let itemsParsed = typeof o.items === 'string' ? JSON.parse(o.items) : o.items;
+                    let itemsSummary = itemsParsed.map(i => `${i.name} (x${i.qty || i.quantity})`).join(', ');
+                    let kotBadge = o.is_kot_printed ? 
+                        '<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-black"><i class="fa-solid fa-check"></i> KOT Sent</span>' : 
+                        '<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse"><i class="fa-solid fa-triangle-exclamation"></i> KOT NOT Sent!</span>';
 
-                html += `
-                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col justify-between gap-3">
-                        <div>
-                            <div class="flex justify-between items-center mb-1">
-                                <h4 class="font-black text-slate-800 text-sm">Table ${o.table_number}</h4>
-                                ${kotBadge}
+                    let deleteButtonHtml = `
+                        <button onclick="deleteRunningOrder(${o.id}, '${o.table_number}')" class="w-full py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-xs shadow transition active:scale-95 flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-trash"></i> Delete Order (Admin)
+                        </button>
+                    `;
+
+                    let waiterNameVal = o.waiter_name || '';
+
+                    html += `
+                        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col justify-between gap-3">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <h4 class="font-black text-slate-800 text-sm">Table ${o.table_number}</h4>
+                                    ${kotBadge}
+                                </div>
+                                <p class="text-xs text-slate-500 truncate max-w-[280px]">${itemsSummary}</p>
+                                <span class="font-mono font-bold text-orange-600 text-xs mt-1 block">Total: LKR ${(o.total || 0).toFixed(2)}</span>
+                                <span class="text-[10px] text-slate-500 block">Waiter: <b>${waiterNameVal || 'Not Assigned'}</b></span>
                             </div>
-                            <p class="text-xs text-slate-500 truncate max-w-[280px]">${itemsSummary}</p>
-                            <span class="font-mono font-bold text-orange-600 text-xs mt-1 block">Total: LKR ${(o.total || 0).toFixed(2)}</span>
-                            <span class="text-[10px] text-slate-500 block">Waiter: <b>${waiterNameVal || 'Not Assigned'}</b></span>
+                            <div class="flex flex-col gap-2">
+                                <button onclick='loadTableOrder(${o.id}, "${o.table_number}", ${o.subtotal || 0}, ${o.service_charge || 0}, ${o.discount || 0}, ${o.total || 0}, "${o.comment || ''}", ${JSON.stringify(o.items)}, ${o.is_kot_printed || false}, "${waiterNameVal}")' class="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold text-xs shadow transition active:scale-95">Select Table Order</button>
+                                ${deleteButtonHtml}
+                            </div>
                         </div>
-                        <div class="flex flex-col gap-2">
-                            <button onclick='loadTableOrder(${o.id}, "${o.table_number}", ${o.subtotal || 0}, ${o.service_charge || 0}, ${o.discount || 0}, ${o.total || 0}, "${o.comment || ''}", ${JSON.stringify(o.items)}, ${o.is_kot_printed || false}, "${waiterNameVal}")' class="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold text-xs shadow transition active:scale-95">Select Table Order</button>
-                            ${deleteButtonHtml}
-                        </div>
-                    </div>
-                `;
-            });
-        }
-        document.getElementById('active-tables-list').innerHTML = html;
-        let modal = document.getElementById('active-tables-modal');
-        if(modal) {
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        }
-    });
+                    `;
+                });
+            }
+            if(listEl) listEl.innerHTML = html;
+        })
+        .catch(err => {
+            console.error('Error fetching held orders:', err);
+            if(listEl) listEl.innerHTML = '<div class="col-span-2 text-center py-8 text-rose-400 font-semibold text-xs">Failed to load active tables. Please try again.</div>';
+        });
 }
+
 
 
 // Order Delete Function for Admin
