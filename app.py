@@ -1021,16 +1021,19 @@ function openActiveTablesModal() {
         modal.classList.add('flex');
     }
 
-    // මුලින්ම Loading පණිවිඩයක් පෙන්වීම (Instant UI Response)
     let listEl = document.getElementById('active-tables-list');
     if(listEl) {
         listEl.innerHTML = '<div class="col-span-2 text-center py-8 text-slate-400 font-semibold text-xs animate-pulse">Loading active tables...</div>';
     }
 
-    // ඊටපස්සේ Background එකෙන් ඩේටා ෆෙච් කරගැනීම
-    fetch('/api/orders/held', { cache: 'no-store' })
+    // 3 seconds timeout controller එකක් දාලා ලෝඩ් වීම වේගවත් කරමු
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    fetch('/api/orders/held', { cache: 'no-store', signal: controller.signal })
         .then(res => res.json())
         .then(orders => {
+            clearTimeout(timeoutId);
             let html = '';
             if(!orders || orders.length === 0) {
                 html = '<div class="col-span-2 text-center py-8 text-slate-400 font-semibold text-xs">No active running orders on tables right now.</div>';
@@ -1072,8 +1075,16 @@ function openActiveTablesModal() {
             if(listEl) listEl.innerHTML = html;
         })
         .catch(err => {
+            clearTimeout(timeoutId);
             console.error('Error fetching held orders:', err);
-            if(listEl) listEl.innerHTML = '<div class="col-span-2 text-center py-8 text-rose-400 font-semibold text-xs">Failed to load active tables. Please try again.</div>';
+            if(listEl) {
+                listEl.innerHTML = `
+                    <div class="col-span-2 text-center py-6 text-slate-500 font-semibold text-xs flex flex-col items-center gap-2">
+                        <span>Connection delayed or taking too long.</span>
+                        <button onclick="openActiveTablesModal()" class="px-4 py-1.5 bg-orange-500 text-white rounded-xl font-bold text-xs hover:bg-orange-600 active:scale-95">Tap to Retry</button>
+                    </div>
+                `;
+            }
         });
 }
 
